@@ -1,0 +1,47 @@
+{
+  "name": "clouddock",
+  "version": "1.0.0",
+  "description": "云端存储，随手可得 - Chrome Extension for Cloud Storage Management",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.5.1",
+    "@aws-sdk/client-s3": "^3.658.1",
+    "@aws-sdk/s3-request-presigner": "^3.1104.0",
+    "ali-oss": "^6.20.0",
+    "antd": "^5.21.3",
+    "cos-js-sdk-v5": "^1.8.3",
+    "crypto-js": "^4.2.0",
+    "lucide-react": "^0.446.0",
+    "qiniu-js": "^3.4.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-draggable": "^4.4.6",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.25",
+    "@types/ali-oss": "^6.23.3",
+    "@types/chrome": "^0.0.277",
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^26.1.2",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.12.0",
+    "eslint-plugin-react-hooks": "^5.1.0-rc",
+    "postcss": "^8.4.47",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.9"
+  }
+}
