@@ -71,8 +71,8 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
           aria-label="打开 CloudDock"
           aria-expanded={showMenu}
           title="打开 CloudDock；右键查看更多操作"
-          className="clouddock-drag-handle flex h-12 w-12 cursor-grab items-center justify-center border border-border shadow transition active:cursor-grabbing active:translate-y-px active:shadow-none"
-          icon={<CloudUpload size={23} strokeWidth={2} />}
+          className="clouddock-drag-handle flex !h-12 !w-12 !min-w-[48px] !p-0 cursor-grab items-center justify-center border border-white/20 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl active:cursor-grabbing active:scale-95 active:shadow-md"
+          icon={<CloudUpload size={24} strokeWidth={2} />}
           onClick={onClick}
           onContextMenu={(event) => {
             event.preventDefault();
@@ -81,10 +81,10 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
         />
 
         {showMenu && (
-          <div className="clouddock-no-drag pointer-events-auto absolute bottom-16 right-0 flex w-44 flex-col gap-1 rounded border border-border bg-surface p-2 shadow">
+          <div className="clouddock-no-drag pointer-events-auto absolute bottom-[60px] right-0 flex w-36 flex-col gap-1 rounded-xl border border-border/50 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md">
             <Button
               type="text"
-              className="justify-start text-content"
+              className="flex w-full items-center justify-start text-sm text-content"
               icon={<FolderOpen {...iconProps} />}
               onClick={() => {
                 setShowMenu(false);
@@ -95,7 +95,7 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
             </Button>
             <Button
               type="text"
-              className="justify-start text-content"
+              className="flex w-full items-center justify-start text-sm text-content"
               icon={<Camera {...iconProps} />}
               onClick={() => {
                 setShowMenu(false);
@@ -106,7 +106,7 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
             </Button>
             <Button
               type="text"
-              className="justify-start text-content"
+              className="flex w-full items-center justify-start text-sm text-content"
               icon={<HelpCircle {...iconProps} />}
               onClick={() => {
                 setShowMenu(false);
