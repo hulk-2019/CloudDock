@@ -2,6 +2,7 @@ import {
   S3Client,
   ListObjectsV2Command,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   CopyObjectCommand,
   ListBucketsCommand,
@@ -9,6 +10,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
+import { joinPath } from '@/utils/file';
 
 /**
  * AWS S3 服务实现
@@ -84,7 +86,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   ): Promise<UploadResult> {
     if (!this.client) throw new Error('Client not initialized');
 
-    const fullPath = path === '/' ? file.name : `${path}/${file.name}`;
+    const fullPath = joinPath(path, file.name);
 
     const arrayBuffer = await file.arrayBuffer();
     const command = new PutObjectCommand({
@@ -140,7 +142,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   async getFileUrl(path: string, bucket: string, expiresIn: number = 3600): Promise<string> {
     if (!this.client) throw new Error('Client not initialized');
 
-    const command = new PutObjectCommand({
+    const command = new GetObjectCommand({
       Bucket: bucket,
       Key: path,
     });

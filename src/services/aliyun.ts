@@ -1,6 +1,7 @@
 import OSS from 'ali-oss';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
+import { joinPath } from '@/utils/file';
 
 /**
  * 阿里云 OSS 服务实现
@@ -32,31 +33,34 @@ export class AliOSSService implements ICloudStorageProvider {
     if (!this.client) throw new Error('Client not initialized');
 
     // 确保路径以 / 结尾（如果不是根目录）
-    const prefix = path === '/' || path === '' ? '' : path.endsWith('/') ? path : `${path}/`;
+    const currentPrefix = path === '/' || path === '' ? '' : path.endsWith('/') ? path : `${path}/`;
 
-    const result = await this.client.list({
-      prefix,
-      delimiter: '/',
-      'max-keys': 1000,
-    }, {});
+    const result = await this.client.list(
+      {
+        prefix: currentPrefix,
+        delimiter: '/',
+        'max-keys': 1000,
+      },
+      {}
+    );
 
     const files: FileItem[] = [];
 
     // 处理文件夹
     if (result.prefixes) {
-      for (const prefix of result.prefixes) {
+      for (const folderPrefix of result.prefixes) {
         // 跳过当前目录本身
-        if (prefix === path) continue;
+        if (folderPrefix === currentPrefix) continue;
 
-        // 提取文件夹名称：移除前缀路径和尾部斜杠
-        const folderName = prefix.slice(path.length).replace(/\/$/, '');
+        // 必须按规范化后的当前前缀截取；根目录前缀为空，不能使用 path.length（"/" 会误删首字符）
+        const folderName = folderPrefix.slice(currentPrefix.length).replace(/\/$/, '');
 
         // 跳过空名称和特殊目录
         if (!folderName || folderName === '.' || folderName === '..') continue;
 
         files.push({
           name: folderName,
-          path: prefix,
+          path: folderPrefix,
           size: 0,
           type: 'folder',
           lastModified: new Date(),
@@ -68,10 +72,10 @@ export class AliOSSService implements ICloudStorageProvider {
     if (result.objects) {
       for (const obj of result.objects) {
         // 跳过当前目录本身和文件夹标记文件
-        if (obj.name === prefix || obj.name.endsWith('/')) continue;
+        if (obj.name === currentPrefix || obj.name.endsWith('/')) continue;
 
         // 提取文件名：移除前缀路径
-        const fileName = obj.name.slice(prefix.length);
+        const fileName = obj.name.slice(currentPrefix.length);
 
         // 跳过空名称
         if (!fileName) continue;
@@ -111,7 +115,7 @@ export class AliOSSService implements ICloudStorageProvider {
   ): Promise<UploadResult> {
     if (!this.client) throw new Error('Client not initialized');
 
-    const fullPath = path === '/' ? file.name : `${path}/${file.name}`;
+    const fullPath = joinPath(path, file.name);
 
     const result = await this.client.put(fullPath, file, {
       progress: (p: number) => {

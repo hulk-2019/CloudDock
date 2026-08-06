@@ -1,6 +1,7 @@
 import COS from 'cos-js-sdk-v5';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
+import { joinPath } from '@/utils/file';
 
 /**
  * 腾讯云 COS 服务实现
@@ -78,7 +79,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   ): Promise<UploadResult> {
     if (!this.client || !this.config) throw new Error('Client not initialized');
 
-    const fullPath = path === '/' ? file.name : `${path}/${file.name}`;
+    const fullPath = joinPath(path, file.name);
 
     return new Promise((resolve, reject) => {
       this.client!.putObject(

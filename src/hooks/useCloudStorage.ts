@@ -1,29 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CloudStorageFactory } from '@/services/base';
 import type { ICloudStorageProvider } from '@/services/base';
-import type { CloudConfig, FileItem, BucketInfo } from '@/types';
+import type { CloudConfig, FileItem } from '@/types';
 import { useConfigStore } from '@/store/config';
 import { useFileStore } from '@/store/files';
 import { validateBucketName } from '@/utils/configValidation';
+import { isImageFile, isVideoFile, joinPath, normalizeDirectoryPath } from '@/utils/file';
 
-/**
- * 云存储服务 Hook
- */
+const REFRESH_RETRY_DELAYS = [0, 250, 700];
+const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const sameStoragePath = (left: string, right: string) => joinPath(left) === joinPath(right);
+
 export function useCloudStorage() {
   const [provider, setProvider] = useState<ICloudStorageProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { getActiveConfig, currentPath, setCurrentPath, activeConfigId } = useConfigStore();
-  const { files, loading, setFiles, setLoading } = useFileStore();
+  const { files, loading, setFiles, setLoading, upsertFile } = useFileStore();
+  const normalizedCurrentPath = normalizeDirectoryPath(currentPath);
 
-  // 初始化云存储服务
   const initProvider = useCallback(async () => {
     const activeConfig = getActiveConfig();
 
-    // 未配置时不报错，静默等待用户配置
     if (!activeConfig) {
       setError(null);
       setProvider(null);
+      setFiles([]);
       return;
     }
 
@@ -33,23 +35,21 @@ export function useCloudStorage() {
         throw new Error(bucketValidation.message || 'Bucket 名称不符合云厂商规范');
       }
 
-      // 获取凭证（按配置 ID）
       const response = await chrome.runtime.sendMessage({
         action: 'getCredentials',
         configId: activeConfig.id,
       });
 
       if (!response.success || !response.data) {
+        setProvider(null);
         setError('未找到云存储凭证，请先配置 AccessKey');
         return;
       }
 
-      const { ak, sk } = response.data;
-
       const config: CloudConfig = {
         provider: activeConfig.provider,
-        accessKeyId: ak,
-        accessKeySecret: sk,
+        accessKeyId: response.data.ak,
+        accessKeySecret: response.data.sk,
         region: activeConfig.region,
         bucket: activeConfig.bucket,
       };
@@ -57,45 +57,104 @@ export function useCloudStorage() {
       const providerInstance = await CloudStorageFactory.create(config);
       setProvider(providerInstance);
       setError(null);
-      console.log('Cloud provider initialized:', activeConfig.provider, activeConfig.name);
-    } catch (err) {
-      setError((err as Error).message);
-      console.error('Failed to init provider:', err);
+    } catch (initError) {
+      setProvider(null);
+      setError((initError as Error).message);
+      console.error('Failed to init provider:', initError);
     }
-  }, [getActiveConfig, activeConfigId]);
+  }, [activeConfigId, getActiveConfig, setFiles]);
 
-  // 加载文件列表
-  const loadFiles = useCallback(async () => {
+  const fetchFiles = useCallback(async (): Promise<FileItem[]> => {
     const activeConfig = getActiveConfig();
-    if (!provider || !activeConfig) return;
+    if (!provider || !activeConfig) return [];
+
+    const fileList = await provider.listFiles(normalizedCurrentPath, activeConfig.bucket);
+    return Promise.all(
+      fileList.map(async (file) => {
+        const isMedia =
+          file.type === 'file' && (isImageFile(file.name) || isVideoFile(file.name));
+        if (!isMedia) return file;
+
+        try {
+          const url = await provider.getFileUrl(file.path, activeConfig.bucket);
+          return { ...file, url };
+        } catch (previewError) {
+          console.warn('Failed to create media preview URL:', file.path, previewError);
+          return file;
+        }
+      })
+    );
+  }, [getActiveConfig, normalizedCurrentPath, provider]);
+
+  const loadFiles = useCallback(async (): Promise<FileItem[] | null> => {
+    if (!provider || !getActiveConfig()) return null;
 
     setLoading(true);
     try {
-      const fileList = await provider.listFiles(currentPath, activeConfig.bucket);
+      const fileList = await fetchFiles();
       setFiles(fileList);
       setError(null);
-    } catch (err) {
-      setError((err as Error).message);
-      console.error('Failed to load files:', err);
+      return fileList;
+    } catch (loadError) {
+      setError((loadError as Error).message);
+      console.error('Failed to load files:', loadError);
+      return null;
     } finally {
       setLoading(false);
     }
-  }, [provider, getActiveConfig, currentPath, setFiles, setLoading]);
+  }, [fetchFiles, getActiveConfig, provider, setFiles, setLoading]);
 
-  // 导航到目录
+  const refresh = useCallback(async () => loadFiles(), [loadFiles]);
+
+  /**
+   * 对象存储在写入后可能短暂返回旧列表。这里会保留乐观项并进行有限重试，
+   * 确保新建文件夹和上传文件在操作完成后立即出现在当前列表中。
+   */
+  const refreshUntilVisible = useCallback(
+    async (expectedPath: string, optimisticItem: FileItem): Promise<boolean> => {
+      if (!provider || !getActiveConfig()) return false;
+
+      upsertFile(optimisticItem);
+      setLoading(true);
+      try {
+        for (const delay of REFRESH_RETRY_DELAYS) {
+          if (delay > 0) await wait(delay);
+
+          const remoteFiles = await fetchFiles();
+          const found = remoteFiles.some((item) => sameStoragePath(item.path, expectedPath));
+          const localFiles = useFileStore.getState().files;
+          const localOnlyFiles = localFiles.filter(
+            (localItem) => !remoteFiles.some((remoteItem) => sameStoragePath(remoteItem.path, localItem.path))
+          );
+          setFiles([...remoteFiles, ...localOnlyFiles]);
+
+          if (found) {
+            setError(null);
+            return true;
+          }
+        }
+
+        return false;
+      } catch (refreshError) {
+        // 写入已成功时，刷新失败不应把刚写入的项目从界面移除。
+        upsertFile(optimisticItem);
+        setError((refreshError as Error).message);
+        console.error('Failed to refresh files after write:', refreshError);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchFiles, getActiveConfig, provider, setFiles, setLoading, upsertFile]
+  );
+
   const navigate = useCallback(
     async (path: string) => {
-      setCurrentPath(path);
+      setCurrentPath(normalizeDirectoryPath(path));
     },
     [setCurrentPath]
   );
 
-  // 刷新文件列表
-  const refresh = useCallback(async () => {
-    await loadFiles();
-  }, [loadFiles]);
-
-  // 删除文件
   const deleteFile = useCallback(
     async (path: string) => {
       const activeConfig = getActiveConfig();
@@ -104,14 +163,13 @@ export function useCloudStorage() {
       try {
         await provider.deleteFile(path, activeConfig.bucket);
         await refresh();
-      } catch (err) {
-        throw new Error(`删除失败: ${(err as Error).message}`);
+      } catch (deleteError) {
+        throw new Error(`删除失败: ${(deleteError as Error).message}`);
       }
     },
-    [provider, getActiveConfig, refresh]
+    [getActiveConfig, provider, refresh]
   );
 
-  // 移动文件
   const moveFile = useCallback(
     async (sourcePath: string, targetPath: string) => {
       const activeConfig = getActiveConfig();
@@ -120,14 +178,13 @@ export function useCloudStorage() {
       try {
         await provider.moveFile(sourcePath, targetPath, activeConfig.bucket);
         await refresh();
-      } catch (err) {
-        throw new Error(`移动失败: ${(err as Error).message}`);
+      } catch (moveError) {
+        throw new Error(`移动失败: ${(moveError as Error).message}`);
       }
     },
-    [provider, getActiveConfig, refresh]
+    [getActiveConfig, provider, refresh]
   );
 
-  // 获取文件链接
   const getFileUrl = useCallback(
     async (path: string) => {
       const activeConfig = getActiveConfig();
@@ -135,50 +192,52 @@ export function useCloudStorage() {
 
       try {
         return await provider.getFileUrl(path, activeConfig.bucket);
-      } catch (err) {
-        throw new Error(`获取链接失败: ${(err as Error).message}`);
+      } catch (urlError) {
+        throw new Error(`获取链接失败: ${(urlError as Error).message}`);
       }
     },
-    [provider, getActiveConfig]
+    [getActiveConfig, provider]
   );
 
-  // 创建文件夹
   const createFolder = useCallback(
     async (folderName: string) => {
       const activeConfig = getActiveConfig();
       if (!provider || !activeConfig) return;
 
+      const folderPath = joinPath(normalizedCurrentPath, folderName);
       try {
-        const folderPath = currentPath === '/' ? folderName : `${currentPath}/${folderName}`;
         await provider.createFolder(folderPath, activeConfig.bucket);
-        await refresh();
-      } catch (err) {
-        throw new Error(`创建文件夹失败: ${(err as Error).message}`);
+        await refreshUntilVisible(folderPath, {
+          name: folderName,
+          path: `${folderPath}/`,
+          size: 0,
+          type: 'folder',
+          lastModified: new Date(),
+        });
+      } catch (createError) {
+        throw new Error(`创建文件夹失败: ${(createError as Error).message}`);
       }
     },
-    [provider, getActiveConfig, currentPath, refresh]
+    [getActiveConfig, normalizedCurrentPath, provider, refreshUntilVisible]
   );
 
-  // 初始化时加载
   useEffect(() => {
-    initProvider();
+    void initProvider();
   }, [initProvider]);
 
-  // provider 变化时加载文件
   useEffect(() => {
-    if (provider) {
-      loadFiles();
-    }
-  }, [provider, currentPath, loadFiles]);
+    if (provider) void loadFiles();
+  }, [loadFiles, provider]);
 
   return {
     provider,
     files,
     loading,
     error,
-    currentPath,
+    currentPath: normalizedCurrentPath,
     navigate,
     refresh,
+    refreshUntilVisible,
     deleteFile,
     moveFile,
     getFileUrl,

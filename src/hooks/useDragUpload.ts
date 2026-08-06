@@ -1,60 +1,40 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { useFileUpload } from './useFileUpload';
 import { extractFilesFromDragEvent, extractMediaFromDragEvent } from '@/utils/screenshot';
 
-/**
- * 拖拽上传 Hook
- */
-export function useDragUpload(ref: React.RefObject<HTMLElement>) {
+const INTERNAL_DRAG_TYPE = 'application/x-clouddock-move';
+
+/** 管理外部文件/网页媒体拖拽上传，并返回可用于 Tailwind 状态样式的布尔值。 */
+export function useDragUpload(ref: RefObject<HTMLElement>) {
   const { uploadFiles } = useFileUpload();
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDragOver = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // 添加拖拽样式
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.add('drag-over');
-    }
+  const handleDragOver = useCallback((event: DragEvent) => {
+    if (event.dataTransfer?.types.includes(INTERNAL_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // 移除拖拽样式
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.classList.remove('drag-over');
-    }
+  const handleDragLeave = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
   }, []);
 
   const handleDrop = useCallback(
-    async (e: DragEvent) => {
-      // 内部文件移动拖拽，交给 DrawerPanel 的文件夹放置逻辑处理，不做上传
-      if (e.dataTransfer?.types.includes('application/x-clouddock-move')) {
-        return;
-      }
+    async (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes(INTERNAL_DRAG_TYPE)) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-
-      // 移除拖拽样式
-      if (e.currentTarget instanceof HTMLElement) {
-        e.currentTarget.classList.remove('drag-over');
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      setIsDragOver(false);
 
       try {
-        // 提取本地文件
-        const localFiles = extractFilesFromDragEvent(e);
-
-        // 提取网页图片/视频
-        const mediaFiles = await extractMediaFromDragEvent(e);
-
-        const allFiles = [...localFiles, ...mediaFiles];
-
-        if (allFiles.length > 0) {
-          await uploadFiles(allFiles);
-        }
+        const localFiles = extractFilesFromDragEvent(event);
+        const mediaFiles = await extractMediaFromDragEvent(event);
+        const files = [...localFiles, ...mediaFiles];
+        if (files.length > 0) await uploadFiles(files);
       } catch (error) {
         console.error('Upload failed:', error);
       }
@@ -76,4 +56,6 @@ export function useDragUpload(ref: React.RefObject<HTMLElement>) {
       element.removeEventListener('drop', handleDrop);
     };
   }, [ref, handleDragOver, handleDragLeave, handleDrop]);
+
+  return { isDragOver };
 }

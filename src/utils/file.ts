@@ -90,6 +90,12 @@ export function joinPath(...parts: string[]): string {
     .replace(/\/+$/, '');
 }
 
+/** 将目录路径规范为对象存储使用的形式：根目录为 /，其他目录无首尾斜杠。 */
+export function normalizeDirectoryPath(path: string): string {
+  const normalized = joinPath(path);
+  return normalized || '/';
+}
+
 /**
  * 路径处理：获取父路径
  */

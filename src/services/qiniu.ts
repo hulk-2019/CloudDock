@@ -1,6 +1,7 @@
 import * as qiniu from 'qiniu-js';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
+import { joinPath } from '@/utils/file';
 
 /**
  * 七牛云服务实现
@@ -31,7 +32,7 @@ export class QiniuService implements ICloudStorageProvider {
     // 实际使用时需要实现 getUploadToken 方法
     const token = await this.getUploadToken(bucket);
 
-    const fullPath = path === '/' ? file.name : `${path}/${file.name}`;
+    const fullPath = joinPath(path, file.name);
 
     const observable = qiniu.upload(
       file,

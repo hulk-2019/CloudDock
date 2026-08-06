@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CloudProvider, CloudConfigItem } from '@/types';
+import { normalizeDirectoryPath } from '@/utils/file';
 
 interface ConfigState {
   // 所有配置列表
@@ -101,7 +102,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     get().saveConfig();
   },
 
-  setCurrentPath: (path) => set({ currentPath: path }),
+  setCurrentPath: (path) => set({ currentPath: normalizeDirectoryPath(path) }),
 
   setFloatingButtonPosition: (position) => {
     set({ floatingButtonPosition: position });
@@ -131,7 +132,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       const userConfig = userConfigResponse.data;
       set({
         activeConfigId: userConfig.activeConfigId || null,
-        currentPath: userConfig.currentPath || '/',
+        currentPath: normalizeDirectoryPath(userConfig.currentPath || '/'),
         floatingButtonPosition: userConfig.floatingButtonPosition || { x: 20, y: 100 },
       });
     }

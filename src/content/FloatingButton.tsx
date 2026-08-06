@@ -1,81 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import Draggable from 'react-draggable';
-import { CloudUpload, HelpCircle, FolderOpen, Camera } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import Draggable, { type DraggableData, type DraggableEvent } from 'react-draggable';
+import { Button } from 'antd';
+import { Camera, CloudUpload, FolderOpen, HelpCircle } from 'lucide-react';
 import { useConfigStore } from '@/store/config';
 
 interface FloatingButtonProps {
   onClick: () => void;
+  onScreenshot?: () => void;
 }
 
-/**
- * 悬浮按钮组件
- */
-const FloatingButton: React.FC<FloatingButtonProps> = ({ onClick }) => {
+const BUTTON_SIZE = 48;
+const VIEWPORT_GAP = 8;
+const iconProps = { size: 17, strokeWidth: 2 } as const;
+
+function clampPosition(position: { x: number; y: number }) {
+  const maxX = Math.max(VIEWPORT_GAP, window.innerWidth - BUTTON_SIZE - VIEWPORT_GAP);
+  const maxY = Math.max(VIEWPORT_GAP, window.innerHeight - BUTTON_SIZE - VIEWPORT_GAP);
+  return {
+    x: Math.min(Math.max(position.x, VIEWPORT_GAP), maxX),
+    y: Math.min(Math.max(position.y, VIEWPORT_GAP), maxY),
+  };
+}
+
+const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
   const { floatingButtonPosition, setFloatingButtonPosition } = useConfigStore();
   const [showMenu, setShowMenu] = useState(false);
-  const [position, setPosition] = useState(floatingButtonPosition);
+  const [position, setPosition] = useState(() => clampPosition(floatingButtonPosition));
+
+  useEffect(() => setPosition(clampPosition(floatingButtonPosition)), [floatingButtonPosition]);
+
+  const keepInsideViewport = useCallback(() => {
+    setPosition((current) => {
+      const next = clampPosition(current);
+      if (next.x !== current.x || next.y !== current.y) setFloatingButtonPosition(next);
+      return next;
+    });
+  }, [setFloatingButtonPosition]);
 
   useEffect(() => {
-    setPosition(floatingButtonPosition);
-  }, [floatingButtonPosition]);
+    window.addEventListener('resize', keepInsideViewport);
+    return () => window.removeEventListener('resize', keepInsideViewport);
+  }, [keepInsideViewport]);
 
-  const handleStop = (_e: any, data: any) => {
-    const newPosition = { x: data.x, y: data.y };
-    setPosition(newPosition);
-    setFloatingButtonPosition(newPosition);
-  };
-
-  const handleScreenshot = async () => {
-    setShowMenu(false);
-    // 触发截图上传逻辑
-    // 这里会触发 DrawerPanel 中的截图处理
-  };
-
-  const handleHelp = () => {
-    setShowMenu(false);
-    chrome.runtime.openOptionsPage();
+  const handleStop = (_event: DraggableEvent, data: DraggableData) => {
+    const nextPosition = clampPosition({ x: data.x, y: data.y });
+    setPosition(nextPosition);
+    setFloatingButtonPosition(nextPosition);
   };
 
   return (
-    <Draggable position={position} onStop={handleStop} handle=".drag-handle" cancel=".no-drag">
-      <div className="clouddock-floating-button">
-        <button
-          type="button"
-          className="floating-btn drag-handle"
+    <Draggable position={position} onStop={handleStop} handle=".clouddock-drag-handle" cancel=".clouddock-no-drag">
+      <div className="pointer-events-auto fixed left-0 top-0 z-[2147483646] w-max font-sans text-content">
+        <Button
+          type="primary"
+          shape="circle"
           aria-label="打开 CloudDock"
           title="打开 CloudDock；右键查看更多操作"
-          onClick={() => {
-            console.log('Floating button clicked!');
-            onClick();
+          className="clouddock-drag-handle flex h-12 w-12 cursor-grab items-center justify-center border border-border shadow transition active:cursor-grabbing active:translate-y-px active:shadow-none"
+          icon={<CloudUpload size={23} strokeWidth={2} />}
+          onClick={onClick}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setShowMenu((value) => !value);
           }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setShowMenu(!showMenu);
-          }}
-        >
-          <CloudUpload size={24} aria-hidden="true" />
-        </button>
+        />
 
         {showMenu && (
-          <div className="floating-menu">
-            <button
-              onClick={(e) => {
-                console.log('Menu open cloud clicked!');
-                onClick();
+          <div className="clouddock-no-drag pointer-events-auto absolute left-14 top-0 flex w-40 flex-col gap-1 rounded border border-border bg-surface p-2 shadow">
+            <Button type="text" className="justify-start text-content" icon={<FolderOpen {...iconProps} />} onClick={onClick}>
+              打开云盘
+            </Button>
+            <Button
+              type="text"
+              className="justify-start text-content"
+              icon={<Camera {...iconProps} />}
+              onClick={() => {
+                setShowMenu(false);
+                onScreenshot?.();
               }}
-              className="menu-item"
             >
-              <FolderOpen size={16} />
-              <span>打开云盘</span>
-            </button>
-            <button onClick={handleScreenshot} className="menu-item">
-              <Camera size={16} />
-              <span>截图上传</span>
-            </button>
-            <button onClick={handleHelp} className="menu-item">
-              <HelpCircle size={16} />
-              <span>使用帮助</span>
-            </button>
+              截图上传
+            </Button>
+            <Button
+              type="text"
+              className="justify-start text-content"
+              icon={<HelpCircle {...iconProps} />}
+              onClick={() => {
+                setShowMenu(false);
+                chrome.runtime.openOptionsPage();
+              }}
+            >
+              使用帮助
+            </Button>
           </div>
         )}
       </div>

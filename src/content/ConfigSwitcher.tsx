@@ -1,69 +1,64 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { Select, Tag } from 'antd';
+import { Check, ChevronDown, Cloud } from 'lucide-react';
 import { useConfigStore } from '@/store/config';
 
-/**
- * 配置切换器（下拉选择）
- */
-export const ConfigSwitcher: React.FC = () => {
-  const { configs, activeConfigId, setActiveConfig, getActiveConfig } = useConfigStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+const providerLabels = {
+  aliyun: '阿里云 OSS',
+  tencent: '腾讯云 COS',
+  qiniu: '七牛云 Kodo',
+  aws: 'AWS S3',
+} as const;
 
-  const activeConfig = getActiveConfig();
+interface ConfigSwitcherProps {
+  compact?: boolean;
+}
 
-  // 点击外部关闭下拉
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const handleSelect = (configId: string) => {
-    setActiveConfig(configId);
-    setIsOpen(false);
-  };
-
-  if (configs.length === 0) {
-    return null;
-  }
+export function ConfigSwitcher({ compact = false }: ConfigSwitcherProps) {
+  const { configs, activeConfigId, setActiveConfig } = useConfigStore();
 
   return (
-    <div className="config-switcher" ref={dropdownRef}>
-      <button className="config-switcher-trigger" onClick={() => setIsOpen(!isOpen)}>
-        <span className="config-name">{activeConfig?.name || '未选择配置'}</span>
-        <ChevronDown size={16} className={isOpen ? 'rotate' : ''} />
-      </button>
-
-      {isOpen && (
-        <div className="config-switcher-dropdown">
-          {configs.map((config) => (
-            <div
-              key={config.id}
-              className={`config-option ${config.id === activeConfigId ? 'active' : ''}`}
-              onClick={() => handleSelect(config.id)}
-            >
-              <div className="config-option-info">
-                <div className="config-option-name">{config.name}</div>
-                <div className="config-option-meta">
-                  {config.provider} · {config.bucket}
-                </div>
-              </div>
-              {config.id === activeConfigId && <Check size={16} />}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <Select
+      aria-label="选择云存储配置"
+      className="w-full"
+      value={activeConfigId ?? undefined}
+      placeholder={compact ? "选择配置" : "选择一个云存储配置"}
+      suffixIcon={<ChevronDown className="text-content-secondary" size={16} strokeWidth={2} />}
+      onChange={setActiveConfig}
+      notFoundContent={<span className="text-content-secondary">暂无配置</span>}
+      optionLabelProp="label"
+      options={configs.map((config) => ({
+        value: config.id,
+        label: config.name,
+        searchText: `${config.name} ${config.bucket} ${config.region}`,
+        config,
+      }))}
+      optionRender={(option) => {
+        const config = option.data.config;
+        return (
+          <div className="flex min-w-0 items-center gap-3 py-1">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-primary shadow">
+              <Cloud size={15} strokeWidth={2} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold text-content">{config.name}</span>
+              <span className="block truncate text-xs text-content-secondary">
+                {providerLabels[config.provider]} · {config.bucket}
+              </span>
+            </span>
+            {config.id === activeConfigId && (
+              <Tag color="blue" bordered={false} icon={<Check size={12} strokeWidth={2} />}>
+                当前
+              </Tag>
+            )}
+          </div>
+        );
+      }}
+      showSearch
+      filterOption={(input, option) =>
+        String(option?.searchText ?? '')
+          .toLowerCase()
+          .includes(input.toLowerCase())
+      }
+    />
   );
-};
+}

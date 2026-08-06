@@ -1,130 +1,113 @@
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import FloatingButton from './FloatingButton';
-import DrawerPanel from './DrawerPanel';
 import { useUIStore } from '@/store/ui';
 import { useConfigStore } from '@/store/config';
-// 以文本形式导入样式，注入到 Shadow DOM 内部（否则会被 Shadow DOM 隔离）
+import { ThemeProvider } from '@/theme/ThemeProvider';
+import FloatingButton from './FloatingButton';
+import DrawerPanel from './DrawerPanel';
 import styleText from './styles.css?inline';
 
-/**
- * Content Script 主入口
- * 注入到每个网页中
- */
+const DRAWER_WIDTH = 460;
+
 function App() {
-  const { drawerVisible, toggleDrawer } = useUIStore();
+  const { drawerVisible, setDrawerVisible, toggleDrawer } = useUIStore();
   const { loadConfig } = useConfigStore();
 
-  // 初始化：加载配置
   useEffect(() => {
-    console.log('CloudDock App mounted, drawerVisible:', drawerVisible);
-    loadConfig().then(() => {
-      console.log('Config loaded');
-    }).catch(err => {
-      console.error('Failed to load config:', err);
-    });
-  }, []);
+    void loadConfig().catch((error) => console.error('Failed to load CloudDock config:', error));
+  }, [loadConfig]);
 
   useEffect(() => {
-    console.log('drawerVisible changed to:', drawerVisible);
-  }, [drawerVisible]);
-
-  // 抽屉打开时，挤压页面内容
-  useEffect(() => {
-    const drawerWidth = 450; // 抽屉宽度（px）
+    const body = document.body;
+    const previousWidth = body.style.width;
+    const previousMaxWidth = body.style.maxWidth;
+    const previousTransition = body.style.transition;
+    const previousBoxSizing = body.style.boxSizing;
 
     if (drawerVisible) {
-      // 方案：同时设置 margin-right 和缩小宽度
-      const hostBody = document.body;
-      const hostHtml = document.documentElement;
-
-      hostBody.style.marginRight = `${drawerWidth}px`;
-      hostBody.style.transition = 'margin-right 0.3s ease';
-
-      // 同时给 html 和 body 设置，确保生效
-      hostHtml.style.marginRight = `${drawerWidth}px`;
-      hostHtml.style.transition = 'margin-right 0.3s ease';
-
-      console.log('Page squeezed, margin-right:', hostBody.style.marginRight);
+      body.style.boxSizing = 'border-box';
+      body.style.width = `calc(100% - ${DRAWER_WIDTH}px)`;
+      body.style.maxWidth = `calc(100% - ${DRAWER_WIDTH}px)`;
+      body.style.transition = 'width 0.3s ease, max-width 0.3s ease';
     } else {
-      // 恢复页面
-      const hostBody = document.body;
-      const hostHtml = document.documentElement;
-
-      hostBody.style.marginRight = '0';
-      hostHtml.style.marginRight = '0';
-      console.log('Page restored');
+      body.style.width = previousWidth;
+      body.style.maxWidth = previousMaxWidth;
     }
 
-    // 清理函数
     return () => {
-      document.body.style.marginRight = '0';
-      document.documentElement.style.marginRight = '0';
+      body.style.width = previousWidth;
+      body.style.maxWidth = previousMaxWidth;
+      body.style.transition = previousTransition;
+      body.style.boxSizing = previousBoxSizing;
     };
   }, [drawerVisible]);
 
-  // 监听来自 background 的消息
   useEffect(() => {
-    const handleMessage = (message: any) => {
-      console.log('Content script received message:', message);
-      if (message.action === 'toggleDrawer') {
-        console.log('Toggling drawer...');
-        toggleDrawer();
-      } else if (message.action === 'screenshotUpload') {
-        // 触发截图上传
-        // 这里会在 DrawerPanel 中处理
+    const handleMessage = (message: { action?: string }) => {
+      if (message.action === 'toggleDrawer') toggleDrawer();
+      if (message.action === 'screenshotUpload') {
+        setDrawerVisible(true);
+        window.dispatchEvent(new Event('clouddock:screenshot-upload'));
       }
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, [setDrawerVisible, toggleDrawer]);
 
-    return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
-    };
-  }, [toggleDrawer]);
+  const requestScreenshot = () => {
+    setDrawerVisible(true);
+    window.dispatchEvent(new Event('clouddock:screenshot-upload'));
+  };
 
   return (
     <>
-      <FloatingButton onClick={toggleDrawer} />
-      <DrawerPanel visible={drawerVisible} onClose={() => toggleDrawer()} />
+      <FloatingButton onClick={toggleDrawer} onScreenshot={requestScreenshot} />
+      <DrawerPanel visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </>
   );
 }
 
-// 创建容器并挂载
 function init() {
-  // 检查是否已经注入
-  if (document.getElementById('clouddock-root')) {
-    return;
-  }
+  if (document.getElementById('clouddock-root')) return;
 
-  // 创建 Shadow DOM 容器，避免样式冲突
-  const container = document.createElement('div');
-  container.id = 'clouddock-root';
-  document.body.appendChild(container);
+  const host = document.createElement('div');
+  host.id = 'clouddock-root';
+  Object.assign(host.style, {
+    position: 'fixed',
+    inset: '0',
+    width: '100vw',
+    height: '100vh',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+  });
+  document.body.appendChild(host);
 
-  // 使用 Shadow DOM
-  const shadowRoot = container.attachShadow({ mode: 'open' });
-
-  // 在 Shadow DOM 内部注入样式
+  const shadowRoot = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = styleText;
   shadowRoot.appendChild(style);
 
-  // 创建 React 根容器
   const appContainer = document.createElement('div');
+  appContainer.id = 'clouddock-app';
+  appContainer.style.pointerEvents = 'auto';
   shadowRoot.appendChild(appContainer);
 
-  // 挂载 React 应用
-  const root = createRoot(appContainer);
-  root.render(<App />);
-
-  console.log('CloudDock content script loaded! 🚀');
+  createRoot(appContainer).render(
+    <ThemeProvider
+      slug="enterprise-dashboard"
+      density="small"
+      styleContainer={shadowRoot}
+      popupContainer={appContainer}
+      themeRoot={appContainer}
+    >
+      <App />
+    </ThemeProvider>
+  );
 }
 
-// 等待 DOM 加载完成
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', init, { once: true });
 } else {
   init();
 }
