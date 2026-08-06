@@ -11,23 +11,35 @@ const REFRESH_RETRY_DELAYS = [0, 250, 700];
 const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const sameStoragePath = (left: string, right: string) => joinPath(left) === joinPath(right);
 
+interface ProviderBinding {
+  provider: ICloudStorageProvider;
+  configId: string;
+}
+
 export function useCloudStorage() {
-  const [provider, setProvider] = useState<ICloudStorageProvider | null>(null);
+  const [binding, setBinding] = useState<ProviderBinding | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { getActiveConfig, currentPath, setCurrentPath, activeConfigId } = useConfigStore();
   const { files, loading, setFiles, setLoading, upsertFile } = useFileStore();
   const normalizedCurrentPath = normalizeDirectoryPath(currentPath);
 
+  // provider 与创建它的配置绑定；切换配置后、新实例就绪前，旧实例一律视为不可用，
+  // 否则加载列表的 effect 会在同一次渲染里拿着旧配置的客户端把旧列表再拉一遍。
+  const provider = binding && binding.configId === activeConfigId ? binding.provider : null;
+
   const initProvider = useCallback(async () => {
     const activeConfig = getActiveConfig();
 
     if (!activeConfig) {
       setError(null);
-      setProvider(null);
+      setBinding(null);
       setFiles([]);
       return;
     }
+
+    // 切换配置后立即清空旧列表；若新配置初始化失败，界面应显示错误而不是上一配置的文件。
+    setFiles([]);
 
     try {
       const bucketValidation = validateBucketName(activeConfig.provider, activeConfig.bucket);
@@ -41,7 +53,7 @@ export function useCloudStorage() {
       });
 
       if (!response.success || !response.data) {
-        setProvider(null);
+        setBinding(null);
         setError('未找到云存储凭证，请先配置 AccessKey');
         return;
       }
@@ -55,10 +67,12 @@ export function useCloudStorage() {
       };
 
       const providerInstance = await CloudStorageFactory.create(config);
-      setProvider(providerInstance);
+      // 等待期间用户可能又切换了配置，过期实例直接丢弃。
+      if (useConfigStore.getState().activeConfigId !== activeConfig.id) return;
+      setBinding({ provider: providerInstance, configId: activeConfig.id });
       setError(null);
     } catch (initError) {
-      setProvider(null);
+      setBinding(null);
       setError((initError as Error).message);
       console.error('Failed to init provider:', initError);
     }
@@ -87,11 +101,14 @@ export function useCloudStorage() {
   }, [getActiveConfig, normalizedCurrentPath, provider]);
 
   const loadFiles = useCallback(async (): Promise<FileItem[] | null> => {
-    if (!provider || !getActiveConfig()) return null;
+    const activeConfig = getActiveConfig();
+    if (!provider || !activeConfig) return null;
 
     setLoading(true);
     try {
       const fileList = await fetchFiles();
+      // 请求在途时配置可能已切换，过期结果不能写进列表。
+      if (useConfigStore.getState().activeConfigId !== activeConfig.id) return null;
       setFiles(fileList);
       setError(null);
       return fileList;
@@ -112,13 +129,15 @@ export function useCloudStorage() {
    */
   const refreshUntilVisible = useCallback(
     async (expectedPath: string, optimisticItem: FileItem): Promise<boolean> => {
-      if (!provider || !getActiveConfig()) return false;
+      const activeConfig = getActiveConfig();
+      if (!provider || !activeConfig) return false;
 
       upsertFile(optimisticItem);
       setLoading(true);
       try {
         for (const delay of REFRESH_RETRY_DELAYS) {
           if (delay > 0) await wait(delay);
+          if (useConfigStore.getState().activeConfigId !== activeConfig.id) return false;
 
           const remoteFiles = await fetchFiles();
           const found = remoteFiles.some((item) => sameStoragePath(item.path, expectedPath));

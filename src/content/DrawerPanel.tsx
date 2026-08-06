@@ -23,7 +23,6 @@ interface DrawerPanelProps {
 
 const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   const asideRef = useRef<HTMLElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
   const { message, modal } = App.useApp();
   const [currentView, setCurrentView] = useState<'files' | 'config'>('files');
   const [newFolderName, setNewFolderName] = useState('');
@@ -45,9 +44,10 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     getFileUrl,
     createFolder,
   } = useCloudStorage();
-  const { uploadFile } = useFileUpload();
+  const { uploadFile, uploadFiles } = useFileUpload();
   const { configs, getActiveConfig } = useConfigStore();
-  const { isDragOver } = useDragUpload(dropZoneRef);
+  // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
+  const { isDragOver } = useDragUpload(asideRef);
   const activeConfig = getActiveConfig();
   const mediaFiles = useMemo(
     () =>
@@ -60,8 +60,19 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   const getModalContainer = () => asideRef.current?.parentElement ?? document.body;
 
   useEffect(() => {
-    const handlePaste = async () => {
+    const handlePaste = async (event: ClipboardEvent) => {
       if (!visible || currentView !== 'files' || !activeConfig) return;
+
+      // 复制的桌面文件只出现在 paste 事件的 clipboardData 里，
+      // 异步 Clipboard API（navigator.clipboard.read）读不到文件，只能读到图片位图。
+      const copiedFiles = Array.from(event.clipboardData?.files ?? []);
+      if (copiedFiles.length > 0) {
+        const { success, failed } = await uploadFiles(copiedFiles);
+        if (success > 0) message.success(`已上传 ${success} 个文件`);
+        if (failed > 0) message.error(`${failed} 个文件上传失败`);
+        return;
+      }
+
       const image = await readImageFromClipboard();
       if (!image) return;
 
@@ -75,7 +86,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [activeConfig, currentView, message, uploadFile, visible]);
+  }, [activeConfig, currentView, message, uploadFile, uploadFiles, visible]);
 
   useEffect(() => {
     const handleScreenshotUpload = async () => {
@@ -286,7 +297,6 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           />
 
           <div
-            ref={dropZoneRef}
             className={cn(
               'relative -mr-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-5 transition',
               isDragOver &&
@@ -294,9 +304,13 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
             )}
           >
             {isDragOver && (
-              <div className="pointer-events-none sticky top-0 z-10 mb-3 flex items-center justify-center gap-2 rounded border border-primary bg-surface p-3 text-sm font-semibold text-primary shadow">
-                <UploadCloud size={18} strokeWidth={2} />
-                松开即可上传到当前目录
+              // 零高度 sticky 容器：提示条悬浮在列表上方，不参与布局，
+              // 避免拖拽过程中光标下方内容位移引发 dragenter/dragleave 抖动。
+              <div className="pointer-events-none sticky top-0 z-10 h-0">
+                <div className="flex items-center justify-center gap-2 rounded border border-primary bg-surface/95 p-3 text-sm font-semibold text-primary shadow backdrop-blur-sm">
+                  <UploadCloud size={18} strokeWidth={2} />
+                  松开即可上传到当前目录
+                </div>
               </div>
             )}
 

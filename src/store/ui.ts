@@ -25,8 +25,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleDrawer: () => set((state) => ({ drawerVisible: !state.drawerVisible })),
 
   addUpload: (upload) => {
+    // 队列以 fileName 作为标识，同名任务直接替换旧记录，避免出现重复进度条。
     set((state) => ({
-      uploadQueue: [...state.uploadQueue, upload],
+      uploadQueue: [
+        ...state.uploadQueue.filter((item) => item.fileName !== upload.fileName),
+        upload,
+      ],
     }));
   },
 

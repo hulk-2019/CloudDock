@@ -78,39 +78,28 @@ export async function extractMediaFromDragEvent(event: DragEvent): Promise<File[
 
   if (!event.dataTransfer) return files;
 
-  // 检查是否有 HTML 内容
   const html = event.dataTransfer.getData('text/html');
-  if (html) {
-    // 解析 HTML，提取图片和视频 URL
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+  if (!html) return files;
 
-    // 提取图片
-    const images = doc.querySelectorAll('img');
-    for (const img of Array.from(images)) {
-      const url = img.src;
-      if (url && url.startsWith('http')) {
-        try {
-          const file = await downloadUrlAsFile(url, img.alt || 'image');
-          if (file) files.push(file);
-        } catch (error) {
-          console.error('Failed to download image:', error);
-        }
-      }
-    }
+  const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    // 提取视频
-    const videos = doc.querySelectorAll('video');
-    for (const video of Array.from(videos)) {
-      const url = video.src;
-      if (url && url.startsWith('http')) {
-        try {
-          const file = await downloadUrlAsFile(url, 'video');
-          if (file) files.push(file);
-        } catch (error) {
-          console.error('Failed to download video:', error);
-        }
-      }
+  // 站点的拖拽载荷里常出现重复节点（懒加载占位图、同一资源的多个引用），
+  // 必须按 URL 去重，否则同一资源会被下载并上传多次。
+  const mediaUrls = new Map<string, string>();
+  for (const img of Array.from(doc.querySelectorAll('img'))) {
+    if (img.src && img.src.startsWith('http')) mediaUrls.set(img.src, img.alt || 'image');
+  }
+  for (const video of Array.from(doc.querySelectorAll('video'))) {
+    const url = video.src || video.querySelector('source')?.src || '';
+    if (url.startsWith('http')) mediaUrls.set(url, 'video');
+  }
+
+  for (const [url, baseName] of mediaUrls) {
+    try {
+      const file = await downloadUrlAsFile(url, baseName);
+      if (file) files.push(file);
+    } catch (error) {
+      console.error('Failed to download media:', error);
     }
   }
 
@@ -129,13 +118,26 @@ async function downloadUrlAsFile(url: string, baseName: string): Promise<File | 
     const contentType = response.headers.get('content-type') || blob.type;
     const ext = getExtensionFromMimeType(contentType) || getExtensionFromUrl(url);
 
-    const timestamp = Date.now();
-    const filename = `${baseName}-${timestamp}${ext ? '.' + ext : ''}`;
+    // 优先沿用 URL 中的原始文件名：命名稳定，同一资源重复拖入不会产生多个不同名副本。
+    const urlFilename = getFilenameFromUrl(url);
+    const filename = urlFilename || `${baseName}-${Date.now()}${ext ? '.' + ext : ''}`;
 
     return new File([blob], filename, { type: contentType });
   } catch (error) {
     console.error('Download failed:', error);
     return null;
+  }
+}
+
+/**
+ * 从 URL 路径中提取带扩展名的文件名；提取不到时返回空串，由调用方回退到时间戳命名。
+ */
+function getFilenameFromUrl(url: string): string {
+  try {
+    const basename = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '');
+    return basename.includes('.') ? basename : '';
+  } catch {
+    return '';
   }
 }
 
