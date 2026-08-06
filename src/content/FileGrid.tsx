@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 const INTERNAL_DRAG_TYPE = 'application/x-clouddock-move';
 const iconProps = { size: 42, strokeWidth: 2 } as const;
+const folderIconProps = { size: 58, strokeWidth: 1.8 } as const;
 
 function extension(name: string) {
   return name.split('.').pop()?.toLowerCase() ?? '';
@@ -29,11 +30,17 @@ function fileIcon(name: string): ReactNode {
   const ext = extension(name);
   if (isImageFile(name)) return <FileImage {...iconProps} />;
   if (isVideoFile(name)) return <FileVideo {...iconProps} />;
-  if (['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'].includes(ext)) return <FileAudio {...iconProps} />;
+  if (['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'].includes(ext))
+    return <FileAudio {...iconProps} />;
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) return <FileArchive {...iconProps} />;
   if (['xls', 'xlsx', 'csv'].includes(ext)) return <FileSpreadsheet {...iconProps} />;
-  if (['txt', 'md', 'pdf', 'doc', 'docx', 'ppt', 'pptx'].includes(ext)) return <FileText {...iconProps} />;
-  if (['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'go', 'rs', 'html', 'css', 'json', 'yaml'].includes(ext)) {
+  if (['txt', 'md', 'pdf', 'doc', 'docx', 'ppt', 'pptx'].includes(ext))
+    return <FileText {...iconProps} />;
+  if (
+    ['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'go', 'rs', 'html', 'css', 'json', 'yaml'].includes(
+      ext
+    )
+  ) {
     return <FileCode {...iconProps} />;
   }
   return <File {...iconProps} />;
@@ -45,7 +52,7 @@ function FilePreview({ file }: { file: FileItem }) {
   useEffect(() => setFailed(false), [file.url]);
 
   if (file.type === 'folder') {
-    return <FolderOpen {...iconProps} className="text-primary" />;
+    return <FolderOpen {...folderIconProps} className="text-primary" />;
   }
 
   if (isImageFile(file.name) && file.url && !failed) {
@@ -164,7 +171,9 @@ export function FileGrid({
             onKeyDown={(event) => handleKeyDown(event, file)}
             onDragStart={(event) => onDragStart(event, file)}
             onDragEnd={onDragEnd}
-            onDragOver={file.type === 'folder' ? (event) => onFolderDragOver(event, file.path) : undefined}
+            onDragOver={
+              file.type === 'folder' ? (event) => onFolderDragOver(event, file.path) : undefined
+            }
             onDragLeave={file.type === 'folder' ? onFolderDragLeave : undefined}
             onDrop={file.type === 'folder' ? (event) => onFolderDrop(event, file.path) : undefined}
           >

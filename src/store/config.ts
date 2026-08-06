@@ -9,8 +9,10 @@ interface ConfigState {
   activeConfigId: string | null;
   // 当前路径
   currentPath: string;
-  // 悬浮按钮位置
-  floatingButtonPosition: { x: number; y: number };
+  // 是否显示悬浮按钮
+  floatingButtonEnabled: boolean;
+  // 悬浮按钮位置；null 表示使用右下角默认位置
+  floatingButtonPosition: { x: number; y: number } | null;
 
   // 获取当前激活的配置
   getActiveConfig: () => CloudConfigItem | null;
@@ -22,7 +24,10 @@ interface ConfigState {
   addConfig: (config: Omit<CloudConfigItem, 'id' | 'createdAt' | 'updatedAt'>) => string;
 
   // 更新配置
-  updateConfig: (configId: string, updates: Partial<Omit<CloudConfigItem, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  updateConfig: (
+    configId: string,
+    updates: Partial<Omit<CloudConfigItem, 'id' | 'createdAt' | 'updatedAt'>>
+  ) => void;
 
   // 删除配置
   deleteConfig: (configId: string) => void;
@@ -30,8 +35,11 @@ interface ConfigState {
   // 设置当前路径
   setCurrentPath: (path: string) => void;
 
+  // 设置悬浮按钮显示状态
+  setFloatingButtonEnabled: (enabled: boolean) => void;
+
   // 设置悬浮按钮位置
-  setFloatingButtonPosition: (position: { x: number; y: number }) => void;
+  setFloatingButtonPosition: (position: { x: number; y: number } | null) => void;
 
   // 加载配置
   loadConfig: () => Promise<void>;
@@ -47,7 +55,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   configs: [],
   activeConfigId: null,
   currentPath: '/',
-  floatingButtonPosition: { x: 20, y: 100 },
+  floatingButtonEnabled: true,
+  floatingButtonPosition: null,
 
   getActiveConfig: () => {
     const { configs, activeConfigId } = get();
@@ -90,9 +99,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   deleteConfig: (configId) => {
     const state = get();
     const newConfigs = state.configs.filter((c) => c.id !== configId);
-    const newActiveId = state.activeConfigId === configId
-      ? (newConfigs[0]?.id || null)
-      : state.activeConfigId;
+    const newActiveId =
+      state.activeConfigId === configId ? newConfigs[0]?.id || null : state.activeConfigId;
 
     set({
       configs: newConfigs,
@@ -103,6 +111,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   setCurrentPath: (path) => set({ currentPath: normalizeDirectoryPath(path) }),
+
+  setFloatingButtonEnabled: (enabled) => {
+    set({ floatingButtonEnabled: enabled });
+    get().saveConfig();
+  },
 
   setFloatingButtonPosition: (position) => {
     set({ floatingButtonPosition: position });
@@ -130,10 +143,13 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
     if (userConfigResponse.success && userConfigResponse.data) {
       const userConfig = userConfigResponse.data;
+      const savedPosition = userConfig.floatingButtonPosition;
+      const isLegacyDefaultPosition = savedPosition?.x === 20 && savedPosition?.y === 100;
       set({
         activeConfigId: userConfig.activeConfigId || null,
         currentPath: normalizeDirectoryPath(userConfig.currentPath || '/'),
-        floatingButtonPosition: userConfig.floatingButtonPosition || { x: 20, y: 100 },
+        floatingButtonEnabled: userConfig.floatingButtonEnabled !== false,
+        floatingButtonPosition: isLegacyDefaultPosition ? null : (savedPosition ?? null),
       });
     }
   },
@@ -155,6 +171,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       value: {
         activeConfigId: state.activeConfigId,
         currentPath: state.currentPath,
+        floatingButtonEnabled: state.floatingButtonEnabled,
         floatingButtonPosition: state.floatingButtonPosition,
       },
     });

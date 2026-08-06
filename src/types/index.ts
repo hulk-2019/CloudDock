@@ -67,7 +67,8 @@ export interface EncryptedCredentials {
 export interface UserConfig {
   activeConfigId: string | null; // 当前激活的配置 ID
   currentPath: string;
-  floatingButtonPosition?: { x: number; y: number };
+  floatingButtonEnabled?: boolean;
+  floatingButtonPosition?: { x: number; y: number } | null;
 }
 
 // 面包屑项

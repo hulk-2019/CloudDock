@@ -1,16 +1,61 @@
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button, Card, Tag } from 'antd';
-import { ArrowRight, Cloud, FolderOpen, HelpCircle } from 'lucide-react';
+import { App, Button, Card, Switch, Tag } from 'antd';
+import {
+  ArrowRight,
+  Cloud,
+  FolderOpen,
+  HelpCircle,
+  LocateFixed,
+  MousePointer2,
+} from 'lucide-react';
+import { useConfigStore } from '@/store/config';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import './styles.css';
 
+async function sendToActiveTab(message: Record<string, unknown>) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab.id) await chrome.tabs.sendMessage(tab.id, message);
+  } catch {
+    // chrome://、扩展商店等页面不允许注入内容脚本；设置仍会保存并在下次加载时生效。
+  }
+}
+
 function Popup() {
+  const { message } = App.useApp();
+  const {
+    loadConfig,
+    floatingButtonEnabled,
+    floatingButtonPosition,
+    setFloatingButtonEnabled,
+    setFloatingButtonPosition,
+  } = useConfigStore();
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  useEffect(() => {
+    void loadConfig()
+      .catch((error) => console.error('Failed to load CloudDock config:', error))
+      .finally(() => setSettingsReady(true));
+  }, [loadConfig]);
+
   const toggleDrawer = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab.id) {
       await chrome.tabs.sendMessage(tab.id, { action: 'toggleDrawer' });
       window.close();
     }
+  };
+
+  const handleFloatingButtonChange = (enabled: boolean) => {
+    setFloatingButtonEnabled(enabled);
+    void sendToActiveTab({ action: 'setFloatingButtonEnabled', enabled });
+  };
+
+  const resetFloatingButtonPosition = () => {
+    setFloatingButtonPosition(null);
+    void sendToActiveTab({ action: 'resetFloatingButtonPosition' });
+    message.success('悬浮按钮已恢复到右下角');
   };
 
   return (
@@ -22,7 +67,9 @@ function Popup() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="m-0 text-xl font-bold tracking-tight">CloudDock</h1>
-            <Tag color="blue" bordered={false}>v{chrome.runtime.getManifest().version}</Tag>
+            <Tag color="blue" bordered={false}>
+              v{chrome.runtime.getManifest().version}
+            </Tag>
           </div>
           <p className="m-0 text-sm text-content-secondary">云端存储，随手可得</p>
         </div>
@@ -44,6 +91,42 @@ function Popup() {
             </span>
             <ArrowRight size={17} strokeWidth={2} />
           </Button>
+        </Card>
+
+        <Card
+          className="border-border bg-surface shadow"
+          title={<span className="text-sm text-content">悬浮按钮</span>}
+          styles={{ body: { padding: 12 } }}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-bg text-primary">
+                <MousePointer2 size={17} strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-content">在网页中显示</div>
+                <p className="m-0 mt-1 text-xs text-content-secondary">关闭后仍可从扩展图标打开</p>
+              </div>
+            </div>
+            <Switch
+              aria-label="在网页中显示悬浮按钮"
+              loading={!settingsReady}
+              disabled={!settingsReady}
+              checked={settingsReady && floatingButtonEnabled}
+              onChange={handleFloatingButtonChange}
+            />
+          </div>
+          <div className="mt-3 border-t border-border pt-3">
+            <Button
+              type="text"
+              size="small"
+              disabled={!settingsReady || !floatingButtonPosition}
+              icon={<LocateFixed size={15} strokeWidth={1.8} />}
+              onClick={resetFloatingButtonPosition}
+            >
+              恢复默认位置
+            </Button>
+          </div>
         </Card>
 
         <Card className="border-border bg-surface shadow" styles={{ body: { padding: 12 } }}>

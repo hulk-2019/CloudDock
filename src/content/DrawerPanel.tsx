@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Alert, App, Button, Input, Modal, Tag, Tooltip } from 'antd';
-import { ChevronRight, Cloud, FolderOpen, Settings2, UploadCloud, X } from 'lucide-react';
+import { ChevronRight, Cloud, FolderOpen, Settings, UploadCloud, X } from 'lucide-react';
 import { useCloudStorage } from '@/hooks/useCloudStorage';
 import { useDragUpload } from '@/hooks/useDragUpload';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -11,7 +11,6 @@ import type { FileItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { BreadcrumbToolbar } from './BreadcrumbToolbar';
 import { ConfigPanel } from './ConfigPanel';
-import { ConfigSwitcher } from './ConfigSwitcher';
 import { FileGrid, INTERNAL_DRAG_TYPE } from './FileGrid';
 import { MediaPreview } from './MediaPreview';
 import { UploadQueue } from './UploadQueue';
@@ -173,7 +172,8 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   };
 
   const handleFolderDragOver = (event: DragEvent, folderPath: string) => {
-    if (!event.dataTransfer.types.includes(INTERNAL_DRAG_TYPE) || draggingFile?.path === folderPath) return;
+    if (!event.dataTransfer.types.includes(INTERNAL_DRAG_TYPE) || draggingFile?.path === folderPath)
+      return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
@@ -206,35 +206,36 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       aria-label="CloudDock 云盘面板"
       aria-hidden={!visible}
       className={cn(
-        'pointer-events-auto fixed bottom-0 right-0 top-0 z-[2147483645] flex w-[460px] flex-col border-l border-border bg-bg p-5 font-sans text-content transition-transform duration-300',
-        visible ? 'pointer-events-auto translate-x-0' : 'pointer-events-none translate-x-full'
+        'pointer-events-auto relative z-10 flex h-screen w-full min-w-0 flex-col border-l-2 border-border bg-bg p-5 font-sans text-content shadow transition-opacity duration-200',
+        visible ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'
       )}
     >
-      <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
+      <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-surface text-primary shadow">
             <Cloud size={19} strokeWidth={2} />
           </span>
           <div className="min-w-0">
-            <h1 className="m-0 truncate text-base font-bold tracking-tight text-content">CloudDock</h1>
-            <p className="m-0 truncate text-[11px] text-content-secondary">云端存储，随手可得</p>
+            <h1 className="m-0 truncate text-base font-bold tracking-tight text-content">
+              CloudDock
+            </h1>
+            <p className="m-0 max-w-64 truncate text-[11px] text-content-secondary">
+              {currentView === 'files' && activeConfig
+                ? `${activeConfig.name} · ${activeConfig.bucket}`
+                : '云端存储，随手可得'}
+            </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {currentView === 'files' && (
-            <>
-              <div className="w-36">
-                <ConfigSwitcher compact />
-              </div>
-              <Tooltip title="管理配置">
-                <Button
-                  type="text"
-                  aria-label="管理云存储配置"
-                  icon={<Settings2 size={17} strokeWidth={2} />}
-                  onClick={() => setCurrentView('config')}
-                />
-              </Tooltip>
-            </>
+            <Tooltip title="配置与设置">
+              <Button
+                type="text"
+                aria-label="打开配置与设置"
+                icon={<Settings size={18} strokeWidth={1.8} />}
+                onClick={() => setCurrentView('config')}
+              />
+            </Tooltip>
           )}
           <Tooltip title="关闭面板">
             <Button
@@ -268,7 +269,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
               前往配置
               <ChevronRight size={17} strokeWidth={2} />
             </Button>
-            {configs.length > 0 && <Tag className="mt-4">请选择顶部配置后继续</Tag>}
+            {configs.length > 0 && <Tag className="mt-4">请前往配置管理选择配置</Tag>}
           </div>
         </div>
       ) : (
@@ -285,7 +286,8 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
             ref={dropZoneRef}
             className={cn(
               'relative mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-2 transition',
-              isDragOver && 'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-bg))] ring-2 ring-primary'
+              isDragOver &&
+                'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-bg))] ring-2 ring-primary'
             )}
           >
             {isDragOver && (
@@ -295,7 +297,15 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
               </div>
             )}
 
-            {error && <Alert className="mb-4" type="error" showIcon message="云存储连接异常" description={error} />}
+            {error && (
+              <Alert
+                className="mb-4"
+                type="error"
+                showIcon
+                message="云存储连接异常"
+                description={error}
+              />
+            )}
 
             <FileGrid
               files={files}
@@ -355,7 +365,9 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           onChange={(event) => setNewFolderName(event.target.value)}
           onPressEnter={() => void handleCreateFolder()}
         />
-        <p className="mb-0 mt-2 text-xs text-content-secondary">名称会按原样保存，不会移除前导零。</p>
+        <p className="mb-0 mt-2 text-xs text-content-secondary">
+          名称会按原样保存，不会移除前导零。
+        </p>
       </Modal>
     </aside>
   );

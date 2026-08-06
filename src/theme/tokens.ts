@@ -1,5 +1,5 @@
 /**
- * 令牌唯一来源：1 种风格 × 同一套语义令牌。
+ * 令牌唯一来源：2 种风格 × 同一套语义令牌。
  * CSS 变量与 antd token 都从这里派生，不从 DOM 反读样式。
  * key 直接用 CSS 变量名，省掉一层映射。
  *
@@ -7,9 +7,7 @@
  * 新增风格时补一整套令牌，缺任何一项都会编译不过。
  */
 
-export const THEME_SLUGS = [
-  'enterprise-dashboard',
-] as const;
+export const THEME_SLUGS = ['minimal', 'enterprise-dashboard'] as const;
 
 export type ThemeSlug = (typeof THEME_SLUGS)[number];
 
@@ -57,10 +55,33 @@ export interface ThemeMeta {
 }
 
 export const THEME_META: Record<ThemeSlug, ThemeMeta> = {
-  'enterprise-dashboard': { label: '企业数据看板 Enterprise Dashboard', dark: false, note: '灰底白卡浮起、饱和蓝主色、高信息密度' },
+  minimal: { label: '极简 Minimal', dark: false, note: '近白底、细描边分层、零投影' },
+  'enterprise-dashboard': {
+    label: '企业数据看板 Enterprise Dashboard',
+    dark: false,
+    note: '灰底白卡浮起、饱和蓝主色、高信息密度',
+  },
 };
 
 export const THEMES: Record<ThemeSlug, ThemeTokens> = {
+  minimal: {
+    '--color-primary': '#3d5a80',
+    '--color-bg': '#fdfdfd',
+    '--color-surface': '#ffffff',
+    '--color-text': '#1d2129',
+    '--color-text-secondary': '#5f6672',
+    '--color-border': '#dcdfe6',
+    '--color-success': '#0b7a35',
+    '--color-warning': '#a85400',
+    '--color-danger': '#d92d20',
+    '--radius': '4px',
+    '--shadow': 'none',
+    '--blur': '0px',
+    '--space-unit': '4px',
+    '--control-height': '32px',
+    '--border': '1px solid var(--color-border)',
+    '--backdrop': '#fdfdfd',
+  },
   'enterprise-dashboard': {
     '--color-primary': '#165dff',
     // 底色刻意压到明显的浅灰，让白卡片靠明度差浮出来 —— 这是本风格的层级手段，与 minimal（近白底 + 纯描边分层）互为对照

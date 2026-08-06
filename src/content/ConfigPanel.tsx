@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { App, Button, Card, Empty, Form, Input, List, Select, Tag, Tooltip } from 'antd';
 import { ArrowLeft, Check, Cloud, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
 import { useConfigStore } from '@/store/config';
+import { cn } from '@/lib/utils';
 import type { CloudConfigItem, CloudProvider } from '@/types';
 import { getBucketHelp, getBucketPlaceholder, validateBucketName } from '@/utils/configValidation';
 
@@ -25,10 +26,9 @@ const providerOptions = [
   { value: 'aws', label: 'AWS S3' },
 ] satisfies Array<{ value: CloudProvider; label: string }>;
 
-const providerLabel = Object.fromEntries(providerOptions.map((item) => [item.value, item.label])) as Record<
-  CloudProvider,
-  string
->;
+const providerLabel = Object.fromEntries(
+  providerOptions.map((item) => [item.value, item.label])
+) as Record<CloudProvider, string>;
 
 const emptyForm: ConfigFormValues = {
   name: '',
@@ -42,14 +42,8 @@ const emptyForm: ConfigFormValues = {
 export function ConfigPanel({ onBack }: ConfigPanelProps) {
   const [form] = Form.useForm<ConfigFormValues>();
   const { message, modal } = App.useApp();
-  const {
-    configs,
-    activeConfigId,
-    addConfig,
-    updateConfig,
-    deleteConfig,
-    setActiveConfig,
-  } = useConfigStore();
+  const { configs, activeConfigId, addConfig, updateConfig, deleteConfig, setActiveConfig } =
+    useConfigStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -99,7 +93,9 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
     const bucket = values.bucket.trim();
     const bucketValidation = validateBucketName(values.provider, bucket);
     if (!bucketValidation.valid) {
-      form.setFields([{ name: 'bucket', errors: [bucketValidation.message ?? 'Bucket 名称不符合规范'] }]);
+      form.setFields([
+        { name: 'bucket', errors: [bucketValidation.message ?? 'Bucket 名称不符合规范'] },
+      ]);
       return;
     }
 
@@ -148,7 +144,10 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
       okButtonProps: { danger: true },
       cancelText: '取消',
       async onOk() {
-        const response = await chrome.runtime.sendMessage({ action: 'removeCredentials', configId: config.id });
+        const response = await chrome.runtime.sendMessage({
+          action: 'removeCredentials',
+          configId: config.id,
+        });
         if (response?.success === false) throw new Error(response.error ?? '删除凭证失败');
         deleteConfig(config.id);
         if (editingId === config.id) resetForm();
@@ -187,75 +186,118 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
           {history.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无历史配置" />
           ) : (
-            <List
-              split={false}
-              dataSource={history}
-              renderItem={(config) => {
-                const active = config.id === activeConfigId;
-                return (
-                  <List.Item className="mb-2 rounded border border-border bg-bg px-3 py-3 last:mb-0">
-                    <div className="flex w-full items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-primary shadow">
-                        <Cloud size={17} strokeWidth={2} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <strong className="truncate text-sm text-content">{config.name}</strong>
-                          {active && (
-                            <Tag color="blue" bordered={false} icon={<Check size={12} strokeWidth={2} />}>
-                              当前
-                            </Tag>
+            <div role="radiogroup" aria-label="选择云存储配置">
+              <List
+                split={false}
+                dataSource={history}
+                renderItem={(config) => {
+                  const active = config.id === activeConfigId;
+                  return (
+                    <List.Item
+                      role="radio"
+                      aria-checked={active}
+                      tabIndex={0}
+                      className={cn(
+                        'mb-2 cursor-pointer rounded border bg-bg px-3 py-3 transition last:mb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                        active
+                          ? 'border-primary bg-[color-mix(in_srgb,var(--color-primary)_7%,var(--color-surface))]'
+                          : 'border-border hover:border-primary'
+                      )}
+                      onClick={() => setActiveConfig(config.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setActiveConfig(config.id);
+                        }
+                      }}
+                    >
+                      <div className="flex w-full items-start gap-3">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'mt-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                            active ? 'border-primary' : 'border-border bg-surface'
                           )}
-                        </div>
-                        <p className="my-1 truncate text-xs text-content-secondary" title={`${config.region} · ${config.bucket}`}>
-                          {providerLabel[config.provider]} · {config.region} · {config.bucket}
-                        </p>
-                        <span className="text-[11px] text-content-secondary">
-                          更新于 {new Date(config.updatedAt).toLocaleString('zh-CN')}
+                        >
+                          {active && <span className="h-2 w-2 rounded-full bg-primary" />}
                         </span>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        {!active && (
-                          <Tooltip title="设为当前配置">
-                            <Button size="small" type="text" onClick={() => setActiveConfig(config.id)}>
-                              使用
-                            </Button>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-primary shadow">
+                          <Cloud size={17} strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <strong className="truncate text-sm text-content">{config.name}</strong>
+                            {active && (
+                              <Tag
+                                color="blue"
+                                bordered={false}
+                                icon={<Check size={12} strokeWidth={2} />}
+                              >
+                                当前
+                              </Tag>
+                            )}
+                          </div>
+                          <p
+                            className="my-1 truncate text-xs text-content-secondary"
+                            title={`${config.region} · ${config.bucket}`}
+                          >
+                            {providerLabel[config.provider]} · {config.region} · {config.bucket}
+                          </p>
+                          <span className="text-[11px] text-content-secondary">
+                            更新于 {new Date(config.updatedAt).toLocaleString('zh-CN')}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Tooltip title="编辑">
+                            <Button
+                              size="small"
+                              type="text"
+                              aria-label={`编辑 ${config.name}`}
+                              icon={<Edit2 size={14} strokeWidth={2} />}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void startEdit(config);
+                              }}
+                            />
                           </Tooltip>
-                        )}
-                        <Tooltip title="编辑">
-                          <Button
-                            size="small"
-                            type="text"
-                            aria-label={`编辑 ${config.name}`}
-                            icon={<Edit2 size={14} strokeWidth={2} />}
-                            onClick={() => startEdit(config)}
-                          />
-                        </Tooltip>
-                        <Tooltip title="删除">
-                          <Button
-                            danger
-                            size="small"
-                            type="text"
-                            aria-label={`删除 ${config.name}`}
-                            icon={<Trash2 size={14} strokeWidth={2} />}
-                            onClick={() => handleDelete(config)}
-                          />
-                        </Tooltip>
+                          <Tooltip title="删除">
+                            <Button
+                              danger
+                              size="small"
+                              type="text"
+                              aria-label={`删除 ${config.name}`}
+                              icon={<Trash2 size={14} strokeWidth={2} />}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDelete(config);
+                              }}
+                            />
+                          </Tooltip>
+                        </div>
                       </div>
-                    </div>
-                  </List.Item>
-                );
-              }}
-            />
+                    </List.Item>
+                  );
+                }}
+              />
+            </div>
           )}
         </Card>
 
         {formVisible && (
           <Card
             className="border-border bg-surface shadow"
-            title={<span className="text-sm text-content">{editingId ? '编辑配置' : '添加配置'}</span>}
+            title={
+              <span className="text-sm text-content">{editingId ? '编辑配置' : '添加配置'}</span>
+            }
             extra={
-              <Button type="text" size="small" aria-label="关闭表单" icon={<X size={15} strokeWidth={2} />} onClick={resetForm} />
+              <Button
+                type="text"
+                size="small"
+                aria-label="关闭表单"
+                icon={<X size={15} strokeWidth={2} />}
+                onClick={resetForm}
+              />
             }
           >
             <Form<ConfigFormValues>
@@ -265,13 +307,24 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
               requiredMark={false}
               onFinish={handleSave}
             >
-              <Form.Item name="name" label="配置名称" rules={[{ required: true, whitespace: true, message: '请输入配置名称' }]}>
+              <Form.Item
+                name="name"
+                label="配置名称"
+                rules={[{ required: true, whitespace: true, message: '请输入配置名称' }]}
+              >
                 <Input placeholder="例如：公司阿里云" autoComplete="off" />
               </Form.Item>
               <Form.Item name="provider" label="云厂商" rules={[{ required: true }]}>
-                <Select options={providerOptions} onChange={() => form.validateFields(['bucket']).catch(() => undefined)} />
+                <Select
+                  options={providerOptions}
+                  onChange={() => form.validateFields(['bucket']).catch(() => undefined)}
+                />
               </Form.Item>
-              <Form.Item name="region" label="Region（地域）" rules={[{ required: true, whitespace: true, message: '请输入 Region' }]}>
+              <Form.Item
+                name="region"
+                label="Region（地域）"
+                rules={[{ required: true, whitespace: true, message: '请输入 Region' }]}
+              >
                 <Input placeholder="例如：oss-cn-hangzhou" autoComplete="off" />
               </Form.Item>
               <Form.Item
@@ -285,14 +338,20 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                     validator: (_, value: string) => {
                       if (!value) return Promise.resolve();
                       const result = validateBucketName(provider, value);
-                      return result.valid ? Promise.resolve() : Promise.reject(new Error(result.message));
+                      return result.valid
+                        ? Promise.resolve()
+                        : Promise.reject(new Error(result.message));
                     },
                   },
                 ]}
               >
                 <Input placeholder={getBucketPlaceholder(provider)} autoComplete="off" />
               </Form.Item>
-              <Form.Item name="accessKeyId" label="Access Key ID" rules={[{ required: true, whitespace: true, message: '请输入 Access Key ID' }]}>
+              <Form.Item
+                name="accessKeyId"
+                label="Access Key ID"
+                rules={[{ required: true, whitespace: true, message: '请输入 Access Key ID' }]}
+              >
                 <Input placeholder="请输入 AccessKeyId" autoComplete="off" />
               </Form.Item>
               <Form.Item
@@ -306,7 +365,12 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                 <Button icon={<X size={15} strokeWidth={2} />} onClick={resetForm}>
                   取消
                 </Button>
-                <Button type="primary" htmlType="submit" loading={saving} icon={<Save size={15} strokeWidth={2} />}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={saving}
+                  icon={<Save size={15} strokeWidth={2} />}
+                >
                   保存配置
                 </Button>
               </div>
