@@ -152,8 +152,8 @@ function init() {
 
   createRoot(appContainer).render(
     <ThemeProvider
-      slug="minimal"
-      density="small"
+      slug="modern-glass"
+      density="middle"
       styleContainer={shadowRoot}
       popupContainer={appContainer}
       themeRoot={appContainer}

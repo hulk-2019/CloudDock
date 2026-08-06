@@ -1,3 +1,8 @@
+/* Lightbox 样式必须随内容脚本注入 Shadow Root，宿主页面的样式表无法穿透进来 */
+@import 'yet-another-react-lightbox/styles.css';
+@import 'yet-another-react-lightbox/plugins/captions.css';
+@import 'yet-another-react-lightbox/plugins/counter.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

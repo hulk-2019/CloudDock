@@ -10,6 +10,7 @@ import { captureScreenshot, readImageFromClipboard } from '@/utils/screenshot';
 import type { FileItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { BreadcrumbToolbar } from './BreadcrumbToolbar';
+import { glassModalStyles } from './modalStyles';
 import { ConfigPanel } from './ConfigPanel';
 import { FileGrid, INTERNAL_DRAG_TYPE } from './FileGrid';
 import { MediaPreview } from './MediaPreview';
@@ -128,6 +129,8 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       content: '删除后无法从 CloudDock 恢复。',
       okText: '删除',
       cancelText: '取消',
+      centered: true,
+      styles: glassModalStyles,
       okButtonProps: { danger: true },
       async onOk() {
         await deleteFile(file.path);
@@ -206,11 +209,11 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       aria-label="CloudDock 云盘面板"
       aria-hidden={!visible}
       className={cn(
-        'pointer-events-auto relative z-10 flex h-screen w-full min-w-0 flex-col border-l-2 border-border bg-bg p-5 font-sans text-content shadow transition-opacity duration-200',
-        visible ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'
+        'pointer-events-auto relative z-10 flex h-screen w-full min-w-0 flex-col border-l border-border bg-bg p-5 font-sans text-content shadow-2xl backdrop-blur transition-all duration-300',
+        visible ? 'visible translate-x-0 opacity-100' : 'invisible pointer-events-none translate-x-full opacity-0'
       )}
     >
-      <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+      <header className="relative z-20 mb-4 flex items-center justify-between gap-3 border-b border-border/50 bg-surface/50 pb-4 shadow-sm backdrop-blur-md -mx-5 px-5 -mt-5 pt-5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-surface text-primary shadow">
             <Cloud size={19} strokeWidth={2} />
@@ -285,7 +288,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           <div
             ref={dropZoneRef}
             className={cn(
-              'relative mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-2 transition',
+              'relative -mr-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-5 transition',
               isDragOver &&
                 'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-bg))] ring-2 ring-primary'
             )}
@@ -349,6 +352,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
         open={folderModalOpen}
         okText="创建"
         cancelText="取消"
+        centered
         confirmLoading={creatingFolder}
         getContainer={getModalContainer}
         onOk={handleCreateFolder}
@@ -356,6 +360,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           setFolderModalOpen(false);
           setNewFolderName('');
         }}
+        styles={glassModalStyles}
       >
         <Input
           autoFocus

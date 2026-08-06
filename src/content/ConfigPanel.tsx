@@ -5,6 +5,7 @@ import { useConfigStore } from '@/store/config';
 import { cn } from '@/lib/utils';
 import type { CloudConfigItem, CloudProvider } from '@/types';
 import { getBucketHelp, getBucketPlaceholder, validateBucketName } from '@/utils/configValidation';
+import { glassModalStyles } from './modalStyles';
 
 interface ConfigPanelProps {
   onBack: () => void;
@@ -143,6 +144,8 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
       okText: '删除',
       okButtonProps: { danger: true },
       cancelText: '取消',
+      centered: true,
+      styles: glassModalStyles,
       async onOk() {
         const response = await chrome.runtime.sendMessage({
           action: 'removeCredentials',
@@ -176,12 +179,12 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+      <div className="-mr-5 min-h-0 flex-1 space-y-4 overflow-y-auto pb-4 pr-5">
         <Card
-          className="border-border bg-surface shadow"
+          className="border-border/50 bg-surface/80 shadow-sm backdrop-blur-md"
           title={<span className="text-sm text-content">历史配置</span>}
           extra={<Tag bordered={false}>{configs.length} 条</Tag>}
-          styles={{ body: { padding: 12 } }}
+          styles={{ body: { padding: 12 }, header: { borderBottom: '1px solid var(--color-border)' } }}
         >
           {history.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无历史配置" />
@@ -198,10 +201,10 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                       aria-checked={active}
                       tabIndex={0}
                       className={cn(
-                        'mb-2 cursor-pointer rounded border bg-bg px-3 py-3 transition last:mb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                        'group relative mb-2 cursor-pointer overflow-hidden rounded-sm border bg-surface px-4 py-3 shadow-sm transition-all duration-300 last:mb-0 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
                         active
-                          ? 'border-primary bg-[color-mix(in_srgb,var(--color-primary)_7%,var(--color-surface))]'
-                          : 'border-border hover:border-primary'
+                          ? 'border-primary ring-1 ring-primary'
+                          : 'border-border hover:border-primary/50'
                       )}
                       onClick={() => setActiveConfig(config.id)}
                       onKeyDown={(event) => {
@@ -212,31 +215,21 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                         }
                       }}
                     >
-                      <div className="flex w-full items-start gap-3">
-                        <span
-                          aria-hidden
-                          className={cn(
-                            'mt-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                            active ? 'border-primary' : 'border-border bg-surface'
-                          )}
-                        >
-                          {active && <span className="h-2 w-2 rounded-full bg-primary" />}
-                        </span>
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-primary shadow">
-                          <Cloud size={17} strokeWidth={2} />
+                      {active && (
+                        <div className="absolute right-0 top-0 flex h-0 w-0 items-start justify-end border-[16px] border-transparent border-r-primary border-t-primary">
+                          <Check size={12} strokeWidth={4} className="absolute -right-3 -top-3 text-white" />
+                        </div>
+                      )}
+                      <div className="flex w-full center gap-3">
+                        <span className={cn(
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors',
+                          active ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-bg text-content-secondary'
+                        )}>
+                          <Cloud size={20} strokeWidth={2} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <strong className="truncate text-sm text-content">{config.name}</strong>
-                            {active && (
-                              <Tag
-                                color="blue"
-                                bordered={false}
-                                icon={<Check size={12} strokeWidth={2} />}
-                              >
-                                当前
-                              </Tag>
-                            )}
+                            <strong className={cn('truncate text-sm transition-colors', active ? 'text-primary' : 'text-content')}>{config.name}</strong>
                           </div>
                           <p
                             className="my-1 truncate text-xs text-content-secondary"
@@ -244,11 +237,11 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                           >
                             {providerLabel[config.provider]} · {config.region} · {config.bucket}
                           </p>
-                          <span className="text-[11px] text-content-secondary">
+                          <span className="text-[11px] text-content-secondary opacity-70">
                             更新于 {new Date(config.updatedAt).toLocaleString('zh-CN')}
                           </span>
                         </div>
-                        <div className="flex shrink-0 gap-1">
+                        <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 xl:opacity-100">
                           <Tooltip title="编辑">
                             <Button
                               size="small"
@@ -286,7 +279,7 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
 
         {formVisible && (
           <Card
-            className="border-border bg-surface shadow"
+            className="border-border/50 bg-surface/80 shadow-sm backdrop-blur-md"
             title={
               <span className="text-sm text-content">{editingId ? '编辑配置' : '添加配置'}</span>
             }
@@ -299,6 +292,7 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                 onClick={resetForm}
               />
             }
+            styles={{ header: { borderBottom: '1px solid var(--color-border)' } }}
           >
             <Form<ConfigFormValues>
               form={form}
@@ -306,6 +300,7 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
               initialValues={emptyForm}
               requiredMark={false}
               onFinish={handleSave}
+              className="[&_.ant-form-item-label>label]:text-content-secondary"
             >
               <Form.Item
                 name="name"

@@ -59,7 +59,7 @@ function Popup() {
   };
 
   return (
-    <main className="w-[360px] bg-bg p-5 font-sans text-content">
+    <main className="w-[360px] min-h-screen bg-bg backdrop-blur p-5 font-sans text-content">
       <header className="mb-5 flex items-center gap-3">
         <span className="flex h-12 w-12 items-center justify-center rounded border border-border bg-surface text-primary shadow">
           <Cloud size={24} strokeWidth={2} />
@@ -157,7 +157,7 @@ function Popup() {
 const container = document.getElementById('root');
 if (container) {
   createRoot(container).render(
-    <ThemeProvider slug="enterprise-dashboard" density="middle" popupContainer={container}>
+    <ThemeProvider slug="modern-glass" density="middle" popupContainer={container}>
       <Popup />
     </ThemeProvider>
   );

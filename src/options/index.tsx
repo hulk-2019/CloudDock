@@ -45,7 +45,7 @@ function Key({ children }: { children: React.ReactNode }) {
 
 function Help() {
   return (
-    <main className="min-h-screen bg-bg px-5 py-8 font-sans text-content sm:px-8 lg:px-12">
+    <main className="min-h-screen bg-bg backdrop-blur px-5 py-8 font-sans text-content sm:px-8 lg:px-12">
       <div className="mx-auto max-w-5xl space-y-6">
         <section className="flex flex-col gap-5 rounded border border-border bg-surface p-6 shadow sm:flex-row sm:items-center sm:p-8" aria-labelledby="help-title">
           <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-border bg-bg text-primary shadow">
@@ -145,7 +145,7 @@ function Help() {
 const container = document.getElementById('root');
 if (container) {
   createRoot(container).render(
-    <ThemeProvider slug="enterprise-dashboard" density="middle" popupContainer={container}>
+    <ThemeProvider slug="modern-glass" density="middle" popupContainer={container}>
       <Help />
     </ThemeProvider>
   );

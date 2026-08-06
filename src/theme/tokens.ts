@@ -7,7 +7,7 @@
  * 新增风格时补一整套令牌，缺任何一项都会编译不过。
  */
 
-export const THEME_SLUGS = ['minimal', 'enterprise-dashboard'] as const;
+export const THEME_SLUGS = ['minimal', 'enterprise-dashboard', 'modern-glass'] as const;
 
 export type ThemeSlug = (typeof THEME_SLUGS)[number];
 
@@ -61,6 +61,11 @@ export const THEME_META: Record<ThemeSlug, ThemeMeta> = {
     dark: false,
     note: '灰底白卡浮起、饱和蓝主色、高信息密度',
   },
+  'modern-glass': {
+    label: '现代毛玻璃 Modern Glass',
+    dark: false,
+    note: '半透明毛玻璃、大圆角、柔和阴影、现代感',
+  },
 };
 
 export const THEMES: Record<ThemeSlug, ThemeTokens> = {
@@ -103,5 +108,23 @@ export const THEMES: Record<ThemeSlug, ThemeTokens> = {
     '--control-height': '32px',
     '--border': '1px solid var(--color-border)',
     '--backdrop': '#eff2f7',
+  },
+  'modern-glass': {
+    '--color-primary': '#6366f1', // Indigo 500
+    '--color-bg': 'rgba(248, 250, 252, 0.6)', // Slate 50 with opacity
+    '--color-surface': 'rgba(255, 255, 255, 0.85)',
+    '--color-text': '#0f172a', // Slate 900
+    '--color-text-secondary': '#64748b', // Slate 500
+    '--color-border': 'rgba(226, 232, 240, 0.6)', // Slate 200 with opacity
+    '--color-success': '#10b981', // Emerald 500
+    '--color-warning': '#f59e0b', // Amber 500
+    '--color-danger': '#ef4444', // Red 500
+    '--radius': '12px',
+    '--shadow': '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
+    '--blur': '12px',
+    '--space-unit': '4px',
+    '--control-height': '36px',
+    '--border': '1px solid var(--color-border)',
+    '--backdrop': 'rgba(248, 250, 252, 0.4)',
   },
 };

@@ -162,7 +162,7 @@ export function FileGrid({
             draggable
             aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
             className={cn(
-              'group cursor-pointer border-border bg-surface shadow transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+              'group cursor-pointer border-border bg-surface shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
               isDropTarget && 'border-primary ring-2 ring-primary',
               isDragging && 'opacity-50'
             )}
