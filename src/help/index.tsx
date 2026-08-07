@@ -15,7 +15,8 @@ import {
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import './styles.css';
 
-const providers = ['阿里云 OSS', '腾讯云 COS', '七牛云 Kodo', 'AWS S3'];
+// 七牛云入口已在配置面板临时隐藏，帮助页同步不展示。
+const providers = ['阿里云 OSS', '腾讯云 COS', 'AWS S3'];
 const iconProps = { size: 19, strokeWidth: 2 } as const;
 
 function StepItem({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {

@@ -67,18 +67,19 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
 // 快捷键命令监听
 chrome.commands.onCommand.addListener((command) => {
+  // chrome:// 等内置页面没有内容脚本，发送会失败，静默忽略即可。
   if (command === 'toggle-drawer') {
     // 向当前标签页发送切换抽屉的消息
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'toggleDrawer' });
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'toggleDrawer' }).catch(() => {});
       }
     });
   } else if (command === 'screenshot-upload') {
     // 截图并上传
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'screenshotUpload' });
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'screenshotUpload' }).catch(() => {});
       }
     });
   }

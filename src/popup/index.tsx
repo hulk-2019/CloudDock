@@ -40,10 +40,14 @@ function Popup() {
   }, [loadConfig]);
 
   const toggleDrawer = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab.id) {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab.id) return;
       await chrome.tabs.sendMessage(tab.id, { action: 'toggleDrawer' });
       window.close();
+    } catch {
+      // chrome://、扩展商店等页面无法注入内容脚本，没有消息接收方。
+      message.warning('当前页面不支持打开云盘，请切换到普通网页后再试');
     }
   };
 

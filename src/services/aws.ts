@@ -29,6 +29,13 @@ export class AWSS3Service implements ICloudStorageProvider {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.accessKeySecret,
       },
+      // SDK v3.729+ 默认开启数据完整性校验，presign 时 x-amz-checksum-mode /
+      // x-amz-checksum-crc32 会被提升为查询参数，但 S3 要求它们以请求头出现；
+      // <img>/<video> 标签无法携带自定义请求头，导致所有预签名 GET 返回 403
+      // （封面图、视频预览全部失效）。两侧校验均改为仅在必需时启用。
+      // 参见 https://github.com/aws/aws-sdk-js-v3/issues/6994
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
   }
 
@@ -125,8 +132,13 @@ export class AWSS3Service implements ICloudStorageProvider {
       signal?.removeEventListener('abort', handleAbort);
     }
 
+    // 私有桶下未签名的公开 URL 无法访问，统一返回预签名地址。
+    const url = await this.getFileUrl(fullPath, bucket).catch(
+      () => `https://${bucket}.s3.${this.config!.region}.amazonaws.com/${fullPath}`
+    );
+
     return {
-      url: `https://${bucket}.s3.${this.config!.region}.amazonaws.com/${fullPath}`,
+      url,
       name: file.name,
       size: file.size,
       path: fullPath,
