@@ -8,6 +8,7 @@ import {
   List,
   MoreHorizontal,
   RefreshCw,
+  Upload,
 } from 'lucide-react';
 import type { FileViewMode } from '@/types';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ interface BreadcrumbToolbarProps {
   viewMode: FileViewMode;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
+  onSelectFiles: () => void;
   onCreateFolder: () => void;
   onToggleViewMode: () => void;
 }
@@ -76,6 +78,7 @@ export function BreadcrumbToolbar({
   viewMode,
   onNavigate,
   onRefresh,
+  onSelectFiles,
   onCreateFolder,
   onToggleViewMode,
 }: BreadcrumbToolbarProps) {
@@ -160,6 +163,15 @@ export function BreadcrumbToolbar({
             }
             onClick={onRefresh}
             disabled={loading}
+          />
+        </Tooltip>
+        <Tooltip title="上传文件（可多选）">
+          <Button
+            type="text"
+            aria-label="选择文件上传"
+            className="text-primary"
+            icon={<Upload size={16} strokeWidth={1.8} />}
+            onClick={onSelectFiles}
           />
         </Tooltip>
         <Tooltip title="新建文件夹">

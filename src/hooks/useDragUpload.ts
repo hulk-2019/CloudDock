@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react';
-import { useFileUpload } from './useFileUpload';
 import { extractFilesFromDragEvent, extractMediaFromDragEvent } from '@/utils/screenshot';
 
 const INTERNAL_DRAG_TYPE = 'application/x-clouddock-move';
 
-/** 管理外部文件/网页媒体拖拽上传，并返回可用于 Tailwind 状态样式的布尔值。 */
-export function useDragUpload(ref: RefObject<HTMLElement>) {
-  const { uploadFiles } = useFileUpload();
+/**
+ * 管理外部文件/网页媒体的拖拽热区，并返回可用于 Tailwind 状态样式的布尔值。
+ * 拖入的文件通过 onFiles 交给调用方统一处理（文件夹过滤、同名校验、上传）。
+ */
+export function useDragUpload(
+  ref: RefObject<HTMLElement>,
+  onFiles: (files: File[]) => void | Promise<void>
+) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = useCallback((event: DragEvent) => {
@@ -43,12 +47,12 @@ export function useDragUpload(ref: RefObject<HTMLElement>) {
         // 二者只能取其一，否则同一文件会被上传两次。
         const localFiles = extractFilesFromDragEvent(event);
         const files = localFiles.length > 0 ? localFiles : await extractMediaFromDragEvent(event);
-        if (files.length > 0) await uploadFiles(files);
+        if (files.length > 0) await onFiles(files);
       } catch (error) {
         console.error('Upload failed:', error);
       }
     },
-    [uploadFiles]
+    [onFiles]
   );
 
   useEffect(() => {

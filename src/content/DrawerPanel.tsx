@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { Alert, App, Button, Input, Modal, Tag, Tooltip } from 'antd';
 import { ChevronRight, Cloud, FolderOpen, Settings, UploadCloud, X } from 'lucide-react';
 import { useCloudStorage } from '@/hooks/useCloudStorage';
@@ -21,9 +21,20 @@ interface DrawerPanelProps {
   onClose: () => void;
 }
 
+/** 拖拽/粘贴进来的“文件”可能是目录：目录无法读取内容，用读取首字节的方式甄别。 */
+const isRealFile = async (file: File): Promise<boolean> => {
+  try {
+    await file.slice(0, 1).arrayBuffer();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   const asideRef = useRef<HTMLElement>(null);
   const fileScrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { message, modal } = App.useApp();
   const [currentView, setCurrentView] = useState<'files' | 'config'>('files');
   const [newFolderName, setNewFolderName] = useState('');
@@ -46,11 +57,57 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     getFileUrl,
     createFolder,
   } = useCloudStorage();
-  const { uploadFile, uploadFiles } = useFileUpload();
+  const { uploadFiles } = useFileUpload();
   const { configs, getActiveConfig, fileViewMode, setFileViewMode } = useConfigStore();
-  // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
-  const { isDragOver } = useDragUpload(asideRef);
   const activeConfig = getActiveConfig();
+
+  /** 所有上传入口（拖拽/粘贴/截图/选择文件）的统一闸口：过滤文件夹 → 同名校验 → 上传。 */
+  const submitUploads = useCallback(
+    async (candidates: File[]) => {
+      if (candidates.length === 0) return;
+
+      const checks = await Promise.all(candidates.map(isRealFile));
+      const uploadable = candidates.filter((_, index) => checks[index]);
+      const skippedFolders = candidates.length - uploadable.length;
+      if (skippedFolders > 0) {
+        message.warning(`不支持上传文件夹，已跳过 ${skippedFolders} 项`);
+      }
+      if (uploadable.length === 0) return;
+
+      const performUpload = async () => {
+        const { success, failed } = await uploadFiles(uploadable);
+        if (success > 0) message.success(`已上传 ${success} 个文件`);
+        if (failed > 0) message.error(`${failed} 个文件上传失败`);
+      };
+
+      const existingNames = new Set(files.map((item) => item.name));
+      const conflicts = uploadable.filter((file) => existingNames.has(file.name));
+      if (conflicts.length > 0) {
+        const shownNames = conflicts
+          .slice(0, 3)
+          .map((file) => `「${file.name}」`)
+          .join('、');
+        const suffix = conflicts.length > 3 ? ` 等 ${conflicts.length} 项` : '';
+        modal.confirm({
+          title: '当前目录存在同名内容',
+          content: `${shownNames}${suffix}已存在，继续上传将覆盖同名文件。`,
+          okText: '覆盖上传',
+          cancelText: '取消',
+          centered: true,
+          styles: glassModalStyles,
+          okButtonProps: { danger: true },
+          // 上传进度由队列展示，确认后立即关闭弹框。
+          onOk: () => void performUpload(),
+        });
+        return;
+      }
+      await performUpload();
+    },
+    [files, message, modal, uploadFiles]
+  );
+
+  // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
+  const { isDragOver } = useDragUpload(asideRef, submitUploads);
   const mediaFiles = useMemo(
     () =>
       files.filter(
@@ -69,26 +126,18 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       // 异步 Clipboard API（navigator.clipboard.read）读不到文件，只能读到图片位图。
       const copiedFiles = Array.from(event.clipboardData?.files ?? []);
       if (copiedFiles.length > 0) {
-        const { success, failed } = await uploadFiles(copiedFiles);
-        if (success > 0) message.success(`已上传 ${success} 个文件`);
-        if (failed > 0) message.error(`${failed} 个文件上传失败`);
+        await submitUploads(copiedFiles);
         return;
       }
 
       const image = await readImageFromClipboard();
       if (!image) return;
-
-      try {
-        await uploadFile(image);
-        message.success('剪贴板图片已上传');
-      } catch (uploadError) {
-        message.error(`上传失败：${(uploadError as Error).message}`);
-      }
+      await submitUploads([image]);
     };
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [activeConfig, currentView, message, uploadFile, uploadFiles, visible]);
+  }, [activeConfig, currentView, submitUploads, visible]);
 
   useEffect(() => {
     const handleScreenshotUpload = async () => {
@@ -99,8 +148,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       }
       try {
         const screenshot = await captureScreenshot();
-        await uploadFile(screenshot);
-        message.success('截图已上传');
+        await submitUploads([screenshot]);
       } catch (uploadError) {
         message.error(`截图上传失败：${(uploadError as Error).message}`);
       }
@@ -108,7 +156,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
 
     window.addEventListener('clouddock:screenshot-upload', handleScreenshotUpload);
     return () => window.removeEventListener('clouddock:screenshot-upload', handleScreenshotUpload);
-  }, [activeConfig, message, uploadFile]);
+  }, [activeConfig, message, submitUploads]);
 
   useEffect(() => {
     setPreviewPath(null);
@@ -338,8 +386,22 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
             viewMode={fileViewMode}
             onNavigate={navigate}
             onRefresh={() => void refresh()}
+            onSelectFiles={() => fileInputRef.current?.click()}
             onCreateFolder={() => setFolderModalOpen(true)}
             onToggleViewMode={() => setFileViewMode(fileViewMode === 'grid' ? 'list' : 'grid')}
+          />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(event) => {
+              const selected = Array.from(event.target.files ?? []);
+              // 重置 value，保证连续选择同一批文件也能再次触发 change。
+              event.target.value = '';
+              void submitUploads(selected);
+            }}
           />
 
           <div
