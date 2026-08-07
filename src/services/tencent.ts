@@ -129,13 +129,16 @@ export class TencentCOSService implements ICloudStorageProvider {
   async copyFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
     if (!this.client || !this.config) throw new Error('Client not initialized');
 
+    // CopySource 中的对象键必须 URL 编码，否则中文/特殊字符文件名会报 NoSuchKey。
+    const encodedSource = sourcePath.split('/').map(encodeURIComponent).join('/');
+
     return new Promise((resolve, reject) => {
       this.client!.putObjectCopy(
         {
           Bucket: bucket,
           Region: this.config!.region,
           Key: targetPath,
-          CopySource: `${bucket}.cos.${this.config!.region}.myqcloud.com/${sourcePath}`,
+          CopySource: `${bucket}.cos.${this.config!.region}.myqcloud.com/${encodedSource}`,
         },
         (err) => {
           if (err) return reject(err);

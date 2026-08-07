@@ -125,9 +125,11 @@ export class AWSS3Service implements ICloudStorageProvider {
   async copyFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
     if (!this.client) throw new Error('Client not initialized');
 
+    // CopySource 要求 URL 编码的对象键，否则中文/特殊字符文件名会复制失败。
+    const encodedSource = sourcePath.split('/').map(encodeURIComponent).join('/');
     const command = new CopyObjectCommand({
       Bucket: bucket,
-      CopySource: `${bucket}/${sourcePath}`,
+      CopySource: `${bucket}/${encodedSource}`,
       Key: targetPath,
     });
 

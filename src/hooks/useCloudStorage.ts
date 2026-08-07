@@ -174,13 +174,28 @@ export function useCloudStorage() {
     [setCurrentPath]
   );
 
+  /** 删除文件或文件夹（以 / 结尾视为文件夹，会递归删除全部内容）。 */
   const deleteFile = useCallback(
     async (path: string) => {
       const activeConfig = getActiveConfig();
       if (!provider || !activeConfig) return;
+      const bucket = activeConfig.bucket;
+
+      const removePath = async (targetPath: string): Promise<void> => {
+        if (!targetPath.endsWith('/')) {
+          await provider.deleteFile(targetPath, bucket);
+          return;
+        }
+        const children = await provider.listFiles(targetPath, bucket);
+        for (const child of children) {
+          await removePath(child.path);
+        }
+        // 删除不存在的占位对象各厂商都返回成功，这里失败属于真实错误，需要暴露出来。
+        await provider.deleteFile(targetPath, bucket);
+      };
 
       try {
-        await provider.deleteFile(path, activeConfig.bucket);
+        await removePath(path);
         await refresh();
       } catch (deleteError) {
         throw new Error(`删除失败: ${(deleteError as Error).message}`);
@@ -189,13 +204,81 @@ export function useCloudStorage() {
     [getActiveConfig, provider, refresh]
   );
 
+  /** 列出任意目录内容，不改动全局文件列表状态（用于移动前的同名检测）。 */
+  const listDirectory = useCallback(
+    async (path: string): Promise<FileItem[]> => {
+      const activeConfig = getActiveConfig();
+      if (!provider || !activeConfig) return [];
+      return provider.listFiles(normalizeDirectoryPath(path), activeConfig.bucket);
+    },
+    [getActiveConfig, provider]
+  );
+
+  /**
+   * 移动文件或文件夹（以 / 结尾视为文件夹）。
+   * 对象存储没有文件夹的原子移动语义：文件夹是前缀 + 可选的 0 字节占位对象，
+   * 必须逐层把子项复制到新前缀再删除源，否则只会搬走占位对象、丢下全部内容。
+   */
   const moveFile = useCallback(
     async (sourcePath: string, targetPath: string) => {
       const activeConfig = getActiveConfig();
       if (!provider || !activeConfig) return;
+      const bucket = activeConfig.bucket;
+
+      const moveFolderRecursive = async (sourceDir: string, targetDir: string): Promise<void> => {
+        try {
+          await provider.createFolder(targetDir, bucket);
+        } catch {
+          // 部分厂商没有文件夹占位对象（纯前缀），创建失败不影响子项迁移。
+        }
+
+        // 单次列举最多返回 1000 项，循环分批迁移直到源目录清空；
+        // 若已处理的子项在下一轮列举中仍然存在，说明迁移未生效，必须报错而不是留下半移动状态。
+        let children = await provider.listFiles(sourceDir, bucket);
+        while (children.length > 0) {
+          for (const child of children) {
+            try {
+              if (child.type === 'folder') {
+                await moveFolderRecursive(child.path, `${targetDir}${child.name}/`);
+              } else {
+                await provider.moveFile(child.path, `${targetDir}${child.name}`, bucket);
+              }
+            } catch (childError) {
+              throw new Error(`迁移「${child.path}」失败: ${(childError as Error).message}`);
+            }
+          }
+
+          const remaining = await provider.listFiles(sourceDir, bucket);
+          const stuck = remaining.find((item) =>
+            children.some((child) => child.path === item.path)
+          );
+          if (stuck) {
+            throw new Error(`「${stuck.path}」迁移后仍存在于源目录，已中止以避免数据不一致`);
+          }
+          children = remaining;
+        }
+
+        // 删除不存在的 key 各厂商都返回成功，这里失败属于真实错误（如权限不足），不能静默吞掉。
+        try {
+          await provider.deleteFile(sourceDir, bucket);
+        } catch (placeholderError) {
+          throw new Error(
+            `删除源目录「${sourceDir}」失败: ${(placeholderError as Error).message}`
+          );
+        }
+      };
 
       try {
-        await provider.moveFile(sourcePath, targetPath, activeConfig.bucket);
+        if (sourcePath.endsWith('/')) {
+          const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`;
+          if (targetDir === sourcePath) return;
+          if (targetDir.startsWith(sourcePath)) {
+            throw new Error('不能将文件夹移动到自身或其子目录中');
+          }
+          await moveFolderRecursive(sourcePath, targetDir);
+        } else {
+          await provider.moveFile(sourcePath, targetPath, bucket);
+        }
         await refresh();
       } catch (moveError) {
         throw new Error(`移动失败: ${(moveError as Error).message}`);
@@ -259,6 +342,7 @@ export function useCloudStorage() {
     refreshUntilVisible,
     deleteFile,
     moveFile,
+    listDirectory,
     getFileUrl,
     createFolder,
   };

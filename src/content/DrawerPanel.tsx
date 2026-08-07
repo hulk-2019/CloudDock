@@ -42,6 +42,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     refresh,
     deleteFile,
     moveFile,
+    listDirectory,
     getFileUrl,
     createFolder,
   } = useCloudStorage();
@@ -136,17 +137,22 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   };
 
   const confirmDelete = (file: FileItem) => {
+    const isFolder = file.type === 'folder';
     modal.confirm({
       title: `删除“${file.name}”？`,
-      content: '删除后无法从 CloudDock 恢复。',
+      content: isFolder ? '将删除该文件夹及其中全部内容，删除后无法恢复。' : '删除后无法从 CloudDock 恢复。',
       okText: '删除',
       cancelText: '取消',
       centered: true,
       styles: glassModalStyles,
       okButtonProps: { danger: true },
       async onOk() {
-        await deleteFile(file.path);
-        message.success('文件已删除');
+        try {
+          await deleteFile(file.path);
+          message.success(isFolder ? '文件夹已删除' : '文件已删除');
+        } catch (deleteError) {
+          message.error((deleteError as Error).message);
+        }
       },
     });
   };
@@ -204,14 +210,51 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     setDraggingFile(null);
     setDragOverFolder(null);
 
-    const targetPath = joinPath(folderPath, getBasename(sourcePath));
+    // 文件夹路径以 / 结尾，落点必须保留斜杠，否则占位对象会被复制成普通文件。
+    const isFolder = sourcePath.endsWith('/');
+    const name = getBasename(sourcePath);
+    const targetPath = `${joinPath(folderPath, name)}${isFolder ? '/' : ''}`;
     if (sourcePath === targetPath) return;
+    if (isFolder && targetPath.startsWith(sourcePath)) {
+      message.warning('不能将文件夹移动到自身内部');
+      return;
+    }
 
     try {
-      await moveFile(sourcePath, targetPath);
-      message.success('文件已移动');
-    } catch (moveError) {
-      message.error((moveError as Error).message);
+      const targetChildren = await listDirectory(folderPath);
+      // 覆盖前必须先删掉目标里的同名项：对象存储的“覆盖”只对同 key 生效，
+      // 类型不一致（如同名文件 vs 文件夹）或文件夹合并残留都会让旧对象留在原地。
+      const conflict = targetChildren.find((item) => item.name === name) ?? null;
+
+      const performMove = async () => {
+        try {
+          if (conflict) await deleteFile(conflict.path);
+          await moveFile(sourcePath, targetPath);
+          message.success(isFolder ? '文件夹已移动' : '文件已移动');
+        } catch (moveError) {
+          message.error((moveError as Error).message);
+        }
+      };
+
+      if (conflict) {
+        modal.confirm({
+          title: `目标目录已存在「${name}」`,
+          content:
+            conflict.type === 'folder'
+              ? '继续移动将删除目标目录中的同名文件夹及其全部内容，并替换为当前移动项。'
+              : '继续移动将覆盖目标目录中的同名文件。',
+          okText: '覆盖',
+          cancelText: '取消',
+          centered: true,
+          styles: glassModalStyles,
+          okButtonProps: { danger: true },
+          onOk: performMove,
+        });
+        return;
+      }
+      await performMove();
+    } catch (listError) {
+      message.error((listError as Error).message);
     }
   };
 

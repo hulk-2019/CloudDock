@@ -234,8 +234,8 @@ export function FileGrid({
       >
         <div className="relative mb-3 flex h-24 items-center justify-center rounded border border-border bg-bg">
           <FilePreview file={file} />
-          {file.type === 'file' && (
-            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+            {file.type === 'file' && (
               <Tooltip title="复制链接">
                 <Button
                   size="small"
@@ -249,22 +249,22 @@ export function FileGrid({
                   }}
                 />
               </Tooltip>
-              <Tooltip title="删除">
-                <Button
-                  danger
-                  size="small"
-                  shape="circle"
-                  aria-label={`删除 ${file.name}`}
-                  className="bg-surface shadow"
-                  icon={<Trash2 size={14} strokeWidth={2} />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(file);
-                  }}
-                />
-              </Tooltip>
-            </div>
-          )}
+            )}
+            <Tooltip title="删除">
+              <Button
+                danger
+                size="small"
+                shape="circle"
+                aria-label={`删除 ${file.name}`}
+                className="bg-surface shadow"
+                icon={<Trash2 size={14} strokeWidth={2} />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(file);
+                }}
+              />
+            </Tooltip>
+          </div>
         </div>
         <div className="truncate text-sm font-semibold text-content" title={file.name}>
           {file.name}
@@ -314,8 +314,8 @@ export function FileGrid({
             {formatDate(file.lastModified)}
           </span>
         </span>
-        {file.type === 'file' && (
-          <span className="flex shrink-0 gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+        <span className="flex shrink-0 gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+          {file.type === 'file' && (
             <Tooltip title="复制链接">
               <Button
                 size="small"
@@ -328,21 +328,21 @@ export function FileGrid({
                 }}
               />
             </Tooltip>
-            <Tooltip title="删除">
-              <Button
-                danger
-                size="small"
-                type="text"
-                aria-label={`删除 ${file.name}`}
-                icon={<Trash2 size={14} strokeWidth={2} />}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDelete(file);
-                }}
-              />
-            </Tooltip>
-          </span>
-        )}
+          )}
+          <Tooltip title="删除">
+            <Button
+              danger
+              size="small"
+              type="text"
+              aria-label={`删除 ${file.name}`}
+              icon={<Trash2 size={14} strokeWidth={2} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(file);
+              }}
+            />
+          </Tooltip>
+        </span>
       </div>
     );
   };
