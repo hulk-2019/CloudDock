@@ -1,198 +1,177 @@
-# CloudDock 🚀
+# CloudDock
 
 <div align="center">
 
-**云端存储，随手可得**
+**Cloud storage, always within reach.**
 
-一款支持多云厂商的浏览器云存储管理插件
+A Chrome extension that brings object storage into a side panel on any webpage.
 
-[English](./README_EN.md) | 简体中文
+**English** | [简体中文](./docs/README.zh-CN.md)
 
 </div>
 
-## ✨ 特性
+## Overview
 
-- 🌥️ **多云支持** - 支持阿里云 OSS、腾讯云 COS、七牛云、AWS S3
-- 🎯 **侧边抽屉** - 不干扰浏览，随时唤起云盘
-- 📤 **多种上传** - 拖拽文件、拖拽网页图片、Ctrl+V 粘贴截图
-- 🔐 **安全可靠** - AK/SK 加密存储在本地，数据不离开浏览器
-- 🎨 **界面优雅** - 现代化设计，流畅交互
-- ⚡ **轻量快速** - 基于 React + TypeScript，性能优异
+CloudDock lets you browse, upload, preview, organize, and share files in your object-storage buckets without leaving the page you are viewing. It is built as a Manifest V3 extension and currently provides complete adapters for Aliyun OSS, Tencent Cloud COS, and AWS S3.
 
-## 📸 截图
+> [!IMPORTANT]
+> CloudDock is currently installed from source. There is no official Chrome Web Store release linked by this repository.
 
-<div align="center">
-  <img src="./docs/screenshot-1.png" width="800" alt="主界面" />
-  <p><em>侧边抽屉 - 文件浏览</em></p>
-</div>
+## Features
 
-<div align="center">
-  <img src="./docs/screenshot-2.png" width="800" alt="配置页面" />
-  <p><em>配置页面 - 云厂商设置</em></p>
-</div>
+- **Multi-cloud configurations** — save multiple storage profiles and switch between them from the drawer.
+- **In-page drawer** — open CloudDock from the floating button, the extension popup, or a keyboard shortcut.
+- **Flexible uploads** — select local files, drag local files or webpage media, paste clipboard images, or capture the visible tab.
+- **Upload queue** — monitor progress and cancel active uploads.
+- **File management** — browse folders, create folders, delete objects, copy access links, and move objects by dragging them into folders.
+- **Media preview** — preview supported images and videos without leaving the drawer.
+- **Grid and list views** — switch layouts while browsing large directories.
+- **Local configuration storage** — credentials are encrypted before being stored in `chrome.storage.local`.
 
-## 🚀 快速开始
+## Provider Support
 
-### 安装
+| Provider | Status | Browse | Upload | File operations | Signed links |
+| --- | --- | :---: | :---: | :---: | :---: |
+| Aliyun OSS | Supported | Yes | Yes | Yes | Yes |
+| Tencent Cloud COS | Supported | Yes | Yes | Yes | Yes |
+| AWS S3 | Supported | Yes | Yes | Yes | Yes |
+| Qiniu Kodo | Adapter scaffold only | No | No | No | No |
 
-1. **Chrome Web Store（推荐）**
-   - 访问 [Chrome Web Store](https://chrome.google.com/webstore) 搜索 "CloudDock"
-   - 点击"添加至 Chrome"
+The Qiniu browser SDK cannot provide all required management APIs and requires a server-generated upload token. Its adapter remains in the codebase for future integration, but it is intentionally unavailable in the configuration UI.
 
-2. **本地安装（开发版）**
-   ```bash
-   # 克隆仓库
-   git clone https://github.com/your-username/clouddock.git
-   cd clouddock
+## Requirements
 
-   # 安装依赖
-   pnpm install
+- Chrome or another compatible Chromium-based browser
+- Node.js 22 or later
+- npm
+- An object-storage bucket and a least-privileged access key
 
-   # 构建
-   pnpm build
+## Install from Source
 
-   # 在 Chrome 中加载扩展
-   # 1. 打开 chrome://extensions/
-   # 2. 开启"开发者模式"
-   # 3. 点击"加载已解压的扩展程序"
-   # 4. 选择 dist 目录
-   ```
-
-### 配置
-
-1. 点击浏览器工具栏的 CloudDock 图标
-2. 点击"设置"进入配置页面
-3. 选择你的云存储厂商
-4. 填写 AccessKey ID 和 Secret
-5. 填写 Region 和 Bucket 名称
-6. 保存配置
-
-### 使用
-
-1. **打开云盘**
-   - 点击右下角悬浮按钮
-   - 或点击浏览器工具栏图标 → "打开云盘"
-
-2. **上传文件**
-   - 拖拽本地文件到抽屉区域
-   - 拖拽网页中的图片/视频到抽屉区域
-   - 在抽屉区域按 Ctrl+V 粘贴截图
-
-3. **文件管理**
-   - 点击文件夹进入目录
-   - 点击文件复制下载链接
-   - 右键文件进行删除操作
-
-## 📖 如何获取云厂商 AccessKey
-
-### 阿里云 OSS
-
-1. 登录 [阿里云控制台](https://ram.console.aliyun.com/)
-2. 访问 RAM 访问控制 → 用户 → 创建用户
-3. 勾选"编程访问"，创建 AccessKey
-4. 授予用户 `AliyunOSSFullAccess` 权限
-5. 复制 AccessKey ID 和 Secret
-
-📚 [官方文档](https://help.aliyun.com/document_detail/31827.html)
-
-### 腾讯云 COS
-
-1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
-2. 访问 访问管理 → 访问密钥 → API密钥管理
-3. 新建密钥，获取 SecretId 和 SecretKey
-4. 在 COS 控制台授予 Bucket 权限
-
-📚 [官方文档](https://cloud.tencent.com/document/product/436/68282)
-
-### 七牛云
-
-1. 登录 [七牛云控制台](https://portal.qiniu.com/)
-2. 访问 个人中心 → 密钥管理
-3. 复制 AccessKey 和 SecretKey
-
-📚 [官方文档](https://developer.qiniu.com/af/kb/1334/how-to-access-or-locate-the-access-key-and-secret-key)
-
-### AWS S3
-
-1. 登录 [AWS Console](https://console.aws.amazon.com/)
-2. 访问 IAM → Users → Security credentials
-3. Create access key
-4. 下载或复制 Access key ID 和 Secret access key
-
-📚 [官方文档](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)
-
-## 🛠️ 技术栈
-
-- **前端框架**: React 18 + TypeScript
-- **UI 组件**: Ant Design + Lucide Icons
-- **状态管理**: Zustand
-- **构建工具**: Vite + CRXJS
-- **CSS 方案**: TailwindCSS
-- **云存储 SDK**:
-  - 阿里云: `ali-oss`
-  - 腾讯云: `cos-js-sdk-v5`
-  - 七牛云: `qiniu-js`
-  - AWS: `@aws-sdk/client-s3`
-
-## 📁 项目结构
-
+```bash
+git clone https://github.com/hulk-2019/CloudDock.git
+cd CloudDock
+npm ci
+npm run build
 ```
+
+Then load the extension in Chrome:
+
+1. Open `chrome://extensions/`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose the generated `dist/` directory.
+
+After rebuilding, return to `chrome://extensions/` and reload CloudDock to apply the changes.
+
+## Quick Start
+
+1. Open a regular webpage. Browser-internal pages such as `chrome://extensions/` do not allow the CloudDock content script to run.
+2. Click the CloudDock extension icon and choose **Open Cloud Drive**, or use the floating button.
+3. Select **Go to configuration** in the drawer.
+4. Add a configuration with a display name, provider, region, bucket, Access Key ID, and Access Key Secret.
+5. Save and select the configuration. CloudDock will load the bucket contents automatically.
+
+### Common Operations
+
+- **Upload files:** use the upload button, drag files into the drawer, or paste a copied image with `Ctrl/Command + V`.
+- **Capture and upload:** use the screenshot button on the floating control or the screenshot shortcut.
+- **Open folders:** select a folder or use the breadcrumb navigation.
+- **Preview media:** select a supported image or video file.
+- **Copy a link:** use the file action to generate and copy an access URL.
+- **Move a file:** drag it onto a target folder.
+- **Create or delete:** use the toolbar and file actions in the drawer.
+
+## Keyboard Shortcuts
+
+| Action | Windows / Linux | macOS |
+| --- | --- | --- |
+| Toggle the drawer | `Alt + Shift + D` | `Option + Shift + D` |
+| Capture the visible tab and upload it | `Ctrl + Shift + U` | `Command + Shift + U` |
+| Paste an image into the current folder | `Ctrl + V` | `Command + V` |
+
+Chrome lets you review or customize extension shortcuts at `chrome://extensions/shortcuts`.
+
+## Development
+
+```bash
+# Start the Vite development process
+npm run dev
+
+# Run TypeScript checks
+npm run type-check
+
+# Create a production build
+npm run build
+
+# Preview the Vite build
+npm run preview
+```
+
+### Technology Stack
+
+- React 18 and TypeScript
+- Ant Design, Tailwind CSS, and Lucide React
+- Zustand
+- Vite and CRXJS
+- Aliyun OSS SDK, Tencent COS SDK, and AWS SDK for JavaScript
+
+### Project Structure
+
+```text
 CloudDock/
+├── public/                 # Extension icons and bundled static documentation
 ├── src/
-│   ├── background/        # Service Worker
-│   ├── content/           # Content Script (注入页面)
-│   ├── popup/             # Popup 页面
-│   ├── options/           # 配置页面
-│   ├── components/        # React 组件
-│   ├── services/          # 云存储服务层
-│   ├── hooks/             # React Hooks
-│   ├── store/             # Zustand 状态管理
-│   ├── utils/             # 工具函数
-│   ├── types/             # TypeScript 类型
-│   └── manifest.json      # Extension 配置
-├── public/
-│   ├── icons/             # 图标资源
-│   └── docs/              # 帮助文档
+│   ├── background/         # Manifest V3 service worker and local storage helpers
+│   ├── constants/          # Shared layout constants
+│   ├── content/            # Injected drawer, configuration, file browser, and previews
+│   ├── help/               # Extension help page
+│   ├── hooks/              # Cloud storage and upload hooks
+│   ├── lib/                # Shared runtime utilities
+│   ├── popup/              # Browser action popup
+│   ├── preview/            # Standalone media preview page
+│   ├── services/           # Cloud provider adapters
+│   ├── store/              # Zustand stores
+│   ├── theme/              # Design tokens and theme provider
+│   ├── types/              # Shared TypeScript types
+│   ├── utils/              # Validation, file, and screenshot helpers
+│   └── manifest.json       # Chrome extension manifest
+├── docs/                   # Repository documentation
 ├── package.json
-├── vite.config.ts
-└── README.md
+└── vite.config.ts
 ```
 
-## 🔐 安全说明
+## Security and Permissions
 
-- **本地加密**: AccessKey 使用 AES-256 加密后存储在浏览器本地
-- **不联网**: 除了与你配置的云厂商通信外，不向任何第三方发送数据
-- **开源透明**: 所有代码开源，欢迎审计
+CloudDock communicates directly with the configured cloud provider. Access credentials are encrypted in the extension before being saved to `chrome.storage.local`; they are decrypted locally when a provider client is created.
 
-## 🤝 贡献
+Client-side encryption is not a substitute for cloud-side access control. Use a dedicated key restricted to the required bucket and operations, rotate it regularly, and never use an account owner or administrator credential.
 
-欢迎提交 Issue 和 Pull Request！
+The extension requests access to regular webpages so it can inject the drawer, accept dragged webpage media, and capture the active tab. Review `src/manifest.json` before installing if you need to audit its permissions.
 
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开一个 Pull Request
+## Troubleshooting
 
-## 📄 开源协议
+### The drawer does not open
 
-MIT License - 详见 [LICENSE](./LICENSE) 文件
+CloudDock cannot run on protected browser pages, including most `chrome://` pages and the Chrome Web Store. Switch to a regular webpage and try again.
 
-## 🙏 致谢
+### The bucket does not load
 
-- [Vite](https://vitejs.dev/) - 超快的构建工具
-- [React](https://react.dev/) - 用于构建用户界面的 JavaScript 库
-- [CRXJS](https://crxjs.dev/) - Chrome Extension 的 Vite 插件
-- [Lucide Icons](https://lucide.dev/) - 精美的图标库
+Verify the provider, region, bucket name, key pair, and key permissions. Depending on the provider and bucket policy, you may also need to configure CORS for the extension origin.
 
-## 📞 联系方式
+### A copied link expires
 
-- 作者: CloudDock Team
-- Email: support@clouddock.io
-- GitHub: [@clouddock](https://github.com/clouddock)
+Private objects use provider-generated signed URLs. These links are temporary by design; generate a new link when the previous one expires.
 
----
+## Contributing
 
-<div align="center">
-  如果这个项目对你有帮助，请给个 ⭐️ Star 支持一下！
-</div>
+Issues and pull requests are welcome.
+
+1. Fork the repository.
+2. Create a branch for your change.
+3. Run `npm run type-check` and `npm run build`.
+4. Submit a pull request describing the behavior and verification steps.
+
+## License
+
+CloudDock is released under the [MIT License](./LICENSE).
