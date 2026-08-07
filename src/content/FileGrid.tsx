@@ -1,4 +1,15 @@
-import { useEffect, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button, Card, Empty, Spin, Tooltip } from 'antd';
 import {
   File,
@@ -101,6 +112,8 @@ interface FileGridProps {
   loading: boolean;
   draggingFile: FileItem | null;
   dragOverFolder: string | null;
+  /** 承载列表的滚动容器（抽屉内容区），虚拟化基于它计算可视窗口。 */
+  scrollRef: RefObject<HTMLDivElement>;
   onOpen: (file: FileItem) => void;
   onCopyLink: (file: FileItem) => void;
   onDelete: (file: FileItem) => void;
@@ -111,11 +124,16 @@ interface FileGridProps {
   onFolderDrop: (event: DragEvent, folderPath: string) => void;
 }
 
+const COLUMNS = 2;
+/** 卡片高约 176px + 行距 16px；实际高度由 measureElement 动态修正。 */
+const ESTIMATED_ROW_HEIGHT = 192;
+
 export function FileGrid({
   files,
   loading,
   draggingFile,
   dragOverFolder,
+  scrollRef,
   onOpen,
   onCopyLink,
   onDelete,
@@ -125,6 +143,29 @@ export function FileGrid({
   onFolderDragLeave,
   onFolderDrop,
 }: FileGridProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+  // 列表上方可能有错误提示等内容，行位置需要加上列表在滚动容器内的偏移。
+  const [scrollMargin, setScrollMargin] = useState(0);
+  useLayoutEffect(() => {
+    setScrollMargin(listRef.current?.offsetTop ?? 0);
+  });
+
+  const rows = useMemo(() => {
+    const result: FileItem[][] = [];
+    for (let index = 0; index < files.length; index += COLUMNS) {
+      result.push(files.slice(index, index + COLUMNS));
+    }
+    return result;
+  }, [files]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 4,
+    scrollMargin,
+  });
+
   const handleKeyDown = (event: KeyboardEvent, file: FileItem) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -148,79 +189,91 @@ export function FileGrid({
     );
   }
 
+  const renderCard = (file: FileItem) => {
+    const isDropTarget = file.type === 'folder' && dragOverFolder === file.path;
+    const isDragging = draggingFile?.path === file.path;
+    return (
+      <Card
+        key={file.path}
+        hoverable
+        role="button"
+        tabIndex={0}
+        draggable
+        aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
+        className={cn(
+          'group cursor-pointer border-border bg-surface shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+          isDropTarget && 'border-primary ring-2 ring-primary',
+          isDragging && 'opacity-50'
+        )}
+        styles={{ body: { padding: 12 } }}
+        onClick={() => onOpen(file)}
+        onKeyDown={(event) => handleKeyDown(event, file)}
+        onDragStart={(event) => onDragStart(event, file)}
+        onDragEnd={onDragEnd}
+        onDragOver={
+          file.type === 'folder' ? (event) => onFolderDragOver(event, file.path) : undefined
+        }
+        onDragLeave={file.type === 'folder' ? onFolderDragLeave : undefined}
+        onDrop={file.type === 'folder' ? (event) => onFolderDrop(event, file.path) : undefined}
+      >
+        <div className="relative mb-3 flex h-24 items-center justify-center rounded border border-border bg-bg">
+          <FilePreview file={file} />
+          {file.type === 'file' && (
+            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+              <Tooltip title="复制链接">
+                <Button
+                  size="small"
+                  shape="circle"
+                  aria-label={`复制 ${file.name} 的链接`}
+                  className="border-border bg-surface text-content shadow"
+                  icon={<Link size={14} strokeWidth={2} />}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCopyLink(file);
+                  }}
+                />
+              </Tooltip>
+              <Tooltip title="删除">
+                <Button
+                  danger
+                  size="small"
+                  shape="circle"
+                  aria-label={`删除 ${file.name}`}
+                  className="bg-surface shadow"
+                  icon={<Trash2 size={14} strokeWidth={2} />}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(file);
+                  }}
+                />
+              </Tooltip>
+            </div>
+          )}
+        </div>
+        <div className="truncate text-sm font-semibold text-content" title={file.name}>
+          {file.name}
+        </div>
+        <div className="mt-1 truncate text-xs text-content-secondary">
+          {file.type === 'file' ? `${formatFileSize(file.size)} · ` : ''}
+          {formatDate(file.lastModified)}
+        </div>
+      </Card>
+    );
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-4">
-      {files.map((file) => {
-        const isDropTarget = file.type === 'folder' && dragOverFolder === file.path;
-        const isDragging = draggingFile?.path === file.path;
-        return (
-          <Card
-            key={file.path}
-            hoverable
-            role="button"
-            tabIndex={0}
-            draggable
-            aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
-            className={cn(
-              'group cursor-pointer border-border bg-surface shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
-              isDropTarget && 'border-primary ring-2 ring-primary',
-              isDragging && 'opacity-50'
-            )}
-            styles={{ body: { padding: 12 } }}
-            onClick={() => onOpen(file)}
-            onKeyDown={(event) => handleKeyDown(event, file)}
-            onDragStart={(event) => onDragStart(event, file)}
-            onDragEnd={onDragEnd}
-            onDragOver={
-              file.type === 'folder' ? (event) => onFolderDragOver(event, file.path) : undefined
-            }
-            onDragLeave={file.type === 'folder' ? onFolderDragLeave : undefined}
-            onDrop={file.type === 'folder' ? (event) => onFolderDrop(event, file.path) : undefined}
-          >
-            <div className="relative mb-3 flex h-24 items-center justify-center rounded border border-border bg-bg">
-              <FilePreview file={file} />
-              {file.type === 'file' && (
-                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                  <Tooltip title="复制链接">
-                    <Button
-                      size="small"
-                      shape="circle"
-                      aria-label={`复制 ${file.name} 的链接`}
-                      className="border-border bg-surface text-content shadow"
-                      icon={<Link size={14} strokeWidth={2} />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onCopyLink(file);
-                      }}
-                    />
-                  </Tooltip>
-                  <Tooltip title="删除">
-                    <Button
-                      danger
-                      size="small"
-                      shape="circle"
-                      aria-label={`删除 ${file.name}`}
-                      className="bg-surface shadow"
-                      icon={<Trash2 size={14} strokeWidth={2} />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDelete(file);
-                      }}
-                    />
-                  </Tooltip>
-                </div>
-              )}
-            </div>
-            <div className="truncate text-sm font-semibold text-content" title={file.name}>
-              {file.name}
-            </div>
-            <div className="mt-1 truncate text-xs text-content-secondary">
-              {file.type === 'file' ? `${formatFileSize(file.size)} · ` : ''}
-              {formatDate(file.lastModified)}
-            </div>
-          </Card>
-        );
-      })}
+    <div ref={listRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map((virtualRow) => (
+        <div
+          key={virtualRow.key}
+          ref={virtualizer.measureElement}
+          data-index={virtualRow.index}
+          className="absolute left-0 top-0 grid w-full grid-cols-2 gap-x-4 pb-4"
+          style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
+        >
+          {rows[virtualRow.index]?.map(renderCard)}
+        </div>
+      ))}
     </div>
   );
 }

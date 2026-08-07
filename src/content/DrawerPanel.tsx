@@ -23,6 +23,7 @@ interface DrawerPanelProps {
 
 const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   const asideRef = useRef<HTMLElement>(null);
+  const fileScrollRef = useRef<HTMLDivElement>(null);
   const { message, modal } = App.useApp();
   const [currentView, setCurrentView] = useState<'files' | 'config'>('files');
   const [newFolderName, setNewFolderName] = useState('');
@@ -297,6 +298,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           />
 
           <div
+            ref={fileScrollRef}
             className={cn(
               'relative -mr-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-5 transition',
               isDragOver &&
@@ -329,6 +331,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
               loading={loading}
               draggingFile={draggingFile}
               dragOverFolder={dragOverFolder}
+              scrollRef={fileScrollRef}
               onOpen={openFile}
               onCopyLink={copyFileLink}
               onDelete={confirmDelete}
