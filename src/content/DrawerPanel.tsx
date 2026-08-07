@@ -20,6 +20,7 @@ import {
 } from '@/utils/screenshot';
 import type { FileItem } from '@/types';
 import { DRAWER_PANEL_WIDTH } from '@/constants/layout';
+import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { BreadcrumbToolbar } from './BreadcrumbToolbar';
 import { glassModalStyles } from './modalStyles';
@@ -27,6 +28,7 @@ import { ConfigPanel } from './ConfigPanel';
 import { FileGrid, INTERNAL_DRAG_TYPE } from './FileGrid';
 import { MediaPreview } from './MediaPreview';
 import { UploadQueueBell } from './UploadQueue';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface DrawerPanelProps {
   visible: boolean;
@@ -50,6 +52,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
   const fileScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { message, modal } = App.useApp();
+  const { locale, t } = useI18n();
   const [currentView, setCurrentView] = useState<'files' | 'config'>('files');
   const [newFolderName, setNewFolderName] = useState('');
   const [folderModalOpen, setFolderModalOpen] = useState(false);
@@ -84,18 +87,23 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
       const realFiles = candidates.filter((_, index) => checks[index]);
       const skippedFolders = candidates.length - realFiles.length;
       if (skippedFolders > 0) {
-        message.warning(`不支持上传文件夹，已跳过 ${skippedFolders} 项`);
+        message.warning(
+          t('drawer.folderUploadsAreNotSupportedSkippedCountItemS', { count: skippedFolders })
+        );
       }
 
       const oversized = realFiles.filter((file) => file.size > MAX_UPLOAD_FILE_SIZE_BYTES);
       if (oversized.length > 0) {
         const shownNames = oversized
           .slice(0, 3)
-          .map((file) => `「${file.name}」`)
-          .join('、');
-        const suffix = oversized.length > 3 ? ` 等 ${oversized.length} 项` : '';
+          .map((file) => (locale === 'zh-CN' ? `「${file.name}」` : `“${file.name}”`))
+          .join(locale === 'zh-CN' ? '、' : ', ');
         message.warning(
-          `单个文件不能超过 ${MAX_UPLOAD_FILE_SIZE_LABEL}，已跳过 ${shownNames}${suffix}`
+          t('drawer.fileSizeLimitExceeded', {
+            limit: MAX_UPLOAD_FILE_SIZE_LABEL,
+            count: oversized.length,
+            names: shownNames,
+          })
         );
       }
 
@@ -104,8 +112,8 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
 
       const performUpload = async () => {
         const { success, failed } = await uploadFiles(uploadable);
-        if (success > 0) message.success(`已上传 ${success} 个文件`);
-        if (failed > 0) message.error(`${failed} 个文件上传失败`);
+        if (success > 0) message.success(t('drawer.uploadedCountFileS', { count: success }));
+        if (failed > 0) message.error(t('drawer.countFileSFailedToUpload', { count: failed }));
       };
 
       const existingNames = new Set(files.map((item) => item.name));
@@ -113,14 +121,16 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
       if (conflicts.length > 0) {
         const shownNames = conflicts
           .slice(0, 3)
-          .map((file) => `「${file.name}」`)
-          .join('、');
-        const suffix = conflicts.length > 3 ? ` 等 ${conflicts.length} 项` : '';
+          .map((file) => (locale === 'zh-CN' ? `「${file.name}」` : `“${file.name}”`))
+          .join(locale === 'zh-CN' ? '、' : ', ');
         modal.confirm({
-          title: '当前目录存在同名内容',
-          content: `${shownNames}${suffix}已存在，继续上传将覆盖同名文件。`,
-          okText: '覆盖上传',
-          cancelText: '取消',
+          title: t('drawer.itemsWithTheSameNameAlreadyExist'),
+          content: t('drawer.moveConflictSummary', {
+            count: conflicts.length,
+            names: shownNames,
+          }),
+          okText: t('drawer.uploadAndOverwrite'),
+          cancelText: t('config.cancel'),
           centered: true,
           styles: glassModalStyles,
           okButtonProps: { danger: true },
@@ -131,7 +141,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
       }
       await performUpload();
     },
-    [files, message, modal, uploadFiles]
+    [files, locale, message, modal, t, uploadFiles]
   );
 
   // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
@@ -204,7 +214,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
   useEffect(() => {
     const handleScreenshotUpload = async () => {
       if (!activeConfig) {
-        message.info('请先添加云存储配置');
+        message.info(t('drawer.addAStorageConfigurationFirst'));
         setCurrentView('config');
         return;
       }
@@ -212,13 +222,15 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
         const screenshot = await captureScreenshot();
         await submitUploads([screenshot]);
       } catch (uploadError) {
-        message.error(`截图上传失败：${(uploadError as Error).message}`);
+        message.error(
+          t('drawer.captureUploadFailedError', { error: (uploadError as Error).message })
+        );
       }
     };
 
     window.addEventListener('clouddock:screenshot-upload', handleScreenshotUpload);
     return () => window.removeEventListener('clouddock:screenshot-upload', handleScreenshotUpload);
-  }, [activeConfig, message, submitUploads]);
+  }, [activeConfig, message, submitUploads, t]);
 
   useEffect(() => {
     setPreviewPath(null);
@@ -232,7 +244,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
     try {
       const url = await getFileUrl(file.path);
       await navigator.clipboard.writeText(url);
-      message.success('文件链接已复制');
+      message.success(t('drawer.fileLinkCopied'));
     } catch (linkError) {
       message.error((linkError as Error).message);
     }
@@ -253,17 +265,17 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
   const confirmDelete = (file: FileItem) => {
     const isFolder = file.type === 'folder';
     modal.confirm({
-      title: `删除“${file.name}”？`,
-      content: isFolder ? '将删除该文件夹及其中全部内容，删除后无法恢复。' : '删除后无法从 CloudDock 恢复。',
-      okText: '删除',
-      cancelText: '取消',
+      title: t('config.deleteName', { name: file.name }),
+      content: isFolder ? t('drawer.deleteFolderWarning') : t('drawer.deleteFileWarning'),
+      okText: t('config.delete'),
+      cancelText: t('config.cancel'),
       centered: true,
       styles: glassModalStyles,
       okButtonProps: { danger: true },
       async onOk() {
         try {
           await deleteFile(file.path);
-          message.success(isFolder ? '文件夹已删除' : '文件已删除');
+          message.success(t(isFolder ? 'drawer.folderDeleted' : 'drawer.fileDeleted'));
         } catch (deleteError) {
           message.error((deleteError as Error).message);
         }
@@ -279,7 +291,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
       await createFolder(folderName);
       setNewFolderName('');
       setFolderModalOpen(false);
-      message.success(`文件夹“${folderName}”已创建`);
+      message.success(t('drawer.folderNameCreated', { name: folderName }));
     } catch (createError) {
       message.error((createError as Error).message);
     } finally {
@@ -290,11 +302,11 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
   const handleCreateFolder = async () => {
     const folderName = newFolderName.trim();
     if (!folderName) {
-      message.warning('请输入文件夹名称');
+      message.warning(t('drawer.enterAFolderName'));
       return;
     }
     if (folderName.includes('/') || folderName.includes('\\')) {
-      message.warning('文件夹名称不能包含斜杠');
+      message.warning(t('drawer.folderNamesCannotContainSlashes'));
       return;
     }
 
@@ -302,12 +314,12 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
     if (existing) {
       const isFolder = existing.type === 'folder';
       modal.confirm({
-        title: `“${folderName}”已存在`,
+        title: t('drawer.nameAlreadyExists', { name: folderName }),
         content: isFolder
-          ? '当前目录已有同名文件夹。覆盖将删除原文件夹及其中全部内容，并创建空文件夹。'
-          : '当前目录已有同名文件。覆盖将删除该文件，并创建同名文件夹。',
-        okText: '覆盖',
-        cancelText: '取消',
+          ? t('drawer.folderOverwriteCreationWarning')
+          : t('drawer.fileBlocksFolderCreationWarning'),
+        okText: t('drawer.overwrite'),
+        cancelText: t('config.cancel'),
         centered: true,
         styles: glassModalStyles,
         okButtonProps: { danger: true },
@@ -354,7 +366,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
     const targetPath = `${joinPath(folderPath, name)}${isFolder ? '/' : ''}`;
     if (sourcePath === targetPath) return;
     if (isFolder && targetPath.startsWith(sourcePath)) {
-      message.warning('不能将文件夹移动到自身内部');
+      message.warning(t('drawer.aFolderCannotBeMovedIntoItself'));
       return;
     }
 
@@ -368,7 +380,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
         try {
           if (conflict) await deleteFile(conflict.path);
           await moveFile(sourcePath, targetPath);
-          message.success(isFolder ? '文件夹已移动' : '文件已移动');
+          message.success(t(isFolder ? 'drawer.folderMoved' : 'drawer.fileMoved'));
         } catch (moveError) {
           message.error((moveError as Error).message);
         }
@@ -376,13 +388,13 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
 
       if (conflict) {
         modal.confirm({
-          title: `目标目录已存在「${name}」`,
+          title: t('drawer.nameAlreadyExistsInTheDestinationFolder', { name }),
           content:
             conflict.type === 'folder'
-              ? '继续移动将删除目标目录中的同名文件夹及其全部内容，并替换为当前移动项。'
-              : '继续移动将覆盖目标目录中的同名文件。',
-          okText: '覆盖',
-          cancelText: '取消',
+              ? t('drawer.replaceDestinationFolderWarning')
+              : t('drawer.overwriteDestinationFileWarning'),
+          okText: t('drawer.overwrite'),
+          cancelText: t('config.cancel'),
           centered: true,
           styles: glassModalStyles,
           okButtonProps: { danger: true },
@@ -399,11 +411,13 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
   return (
     <aside
       ref={asideRef}
-      aria-label="CloudDock 云盘面板"
+      aria-label={t('drawer.ariaLabel')}
       aria-hidden={!visible}
       className={cn(
         'pointer-events-auto relative z-10 flex h-screen min-w-0 flex-col border-l border-border bg-bg p-5 font-sans text-content shadow-2xl backdrop-blur transition-all duration-300',
-        visible ? 'visible translate-x-0 opacity-100' : 'invisible pointer-events-none translate-x-full opacity-0'
+        visible
+          ? 'visible translate-x-0 opacity-100'
+          : 'invisible pointer-events-none translate-x-full opacity-0'
       )}
       /* 预览全屏时 iframe 会扩展到整个视口，面板自身保持固定宽度、贴右侧 */
       style={{ width: `min(${DRAWER_PANEL_WIDTH}px, 100vw)`, marginLeft: 'auto' }}
@@ -420,26 +434,27 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
             <p className="m-0 max-w-64 truncate text-[11px] text-content-secondary">
               {currentView === 'files' && activeConfig
                 ? `${activeConfig.name} · ${activeConfig.bucket}`
-                : '云端存储，随手可得'}
+                : t('common.tagline')}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <UploadQueueBell />
+          <LanguageSwitcher />
           {currentView === 'files' && (
-            <Tooltip title="配置与设置">
+            <Tooltip title={t('drawer.configurationsAndSettings')}>
               <Button
                 type="text"
-                aria-label="打开配置与设置"
+                aria-label={t('drawer.openConfigurationsAndSettings')}
                 icon={<Settings size={18} strokeWidth={1.8} />}
                 onClick={() => setCurrentView('config')}
               />
             </Tooltip>
           )}
-          <Tooltip title="关闭面板">
+          <Tooltip title={t('drawer.closePanel')}>
             <Button
               type="text"
-              aria-label="关闭 CloudDock"
+              aria-label={t('drawer.closeCloudDock')}
               icon={<X size={19} strokeWidth={2} />}
               onClick={onClose}
             />
@@ -455,9 +470,11 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
             <span className="mb-5 flex h-20 w-20 items-center justify-center rounded border border-border bg-surface text-primary shadow">
               <FolderOpen size={36} strokeWidth={2} />
             </span>
-            <h2 className="m-0 text-xl font-semibold text-content">开始使用 CloudDock</h2>
+            <h2 className="m-0 text-xl font-semibold text-content">
+              {t('drawer.getStartedWithCloudDock')}
+            </h2>
             <p className="mb-6 mt-2 leading-6 text-content-secondary">
-              添加一个云存储配置，即可在当前页面浏览、上传和管理文件。
+              {t('drawer.emptyStateDescription')}
             </p>
             <Button
               type="primary"
@@ -465,10 +482,14 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
               className="shadow active:translate-y-px active:shadow-none"
               onClick={() => setCurrentView('config')}
             >
-              前往配置
+              {t('drawer.goToConfiguration')}
               <ChevronRight size={17} strokeWidth={2} />
             </Button>
-            {configs.length > 0 && <Tag className="mt-4">请前往配置管理选择配置</Tag>}
+            {configs.length > 0 && (
+              <Tag className="mt-4">
+                {t('drawer.selectAConfigurationInConfigurationManagement')}
+              </Tag>
+            )}
           </div>
         </div>
       ) : (
@@ -511,7 +532,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
               <div className="pointer-events-none sticky top-0 z-10 h-0">
                 <div className="flex items-center justify-center gap-2 rounded border border-primary bg-surface/95 p-3 text-sm font-semibold text-primary shadow backdrop-blur-sm">
                   <UploadCloud size={18} strokeWidth={2} />
-                  松开即可上传到当前目录
+                  {t('drawer.dropToUploadToTheCurrentFolder')}
                 </div>
               </div>
             )}
@@ -521,7 +542,7 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
                 className="mb-4"
                 type="error"
                 showIcon
-                message="云存储连接异常"
+                message={t('drawer.cloudStorageConnectionError')}
                 description={error}
               />
             )}
@@ -544,9 +565,11 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
             />
           </div>
 
-          <footer className="mt-3 flex items-center justify-center gap-2 text-xs text-content-secondary">
-            <UploadCloud size={14} strokeWidth={2} />
-            支持拖拽文件、网页图片与 Ctrl / Command + V 粘贴上传
+          <footer className="mt-3 flex min-w-0 items-center justify-center gap-2 text-xs text-content-secondary">
+            <UploadCloud className="shrink-0" size={14} strokeWidth={2} aria-hidden />
+            <span className="min-w-0 truncate whitespace-nowrap" title={t('drawer.uploadHint')}>
+              {t('drawer.uploadHint')}
+            </span>
           </footer>
         </>
       )}
@@ -562,10 +585,10 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
       />
 
       <Modal
-        title="新建文件夹"
+        title={t('files.newFolder')}
         open={folderModalOpen}
-        okText="创建"
-        cancelText="取消"
+        okText={t('drawer.create')}
+        cancelText={t('config.cancel')}
         centered
         confirmLoading={creatingFolder}
         getContainer={getModalContainer}
@@ -579,13 +602,13 @@ const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) =>
         <Input
           autoFocus
           value={newFolderName}
-          placeholder="请输入文件夹名称，例如 003"
+          placeholder={t('drawer.enterAFolderNameForExample003')}
           maxLength={255}
           onChange={(event) => setNewFolderName(event.target.value)}
           onPressEnter={() => void handleCreateFolder()}
         />
         <p className="mb-0 mt-2 text-xs text-content-secondary">
-          名称会按原样保存，不会移除前导零。
+          {t('drawer.theNameIsSavedAsEnteredIncludingLeadingZeros')}
         </p>
       </Modal>
     </aside>

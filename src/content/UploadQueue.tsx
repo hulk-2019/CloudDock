@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Badge, Button, Dropdown, Empty, Progress, Tag, Tooltip } from 'antd';
 import { Bell, CheckCircle2, CircleX, Clock, LoaderCircle, Trash2, X } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import { useUIStore } from '@/store/ui';
 import { uploadProgress } from '@/lib/uploadProgress';
 import type { UploadTask } from '@/types';
@@ -17,6 +18,7 @@ const UploadTaskItem = memo(function UploadTaskItem({
   task: UploadTask;
   onRemove: (fileName: string) => void;
 }) {
+  const { t } = useI18n();
   const [percent, setPercent] = useState(() => uploadProgress.get(task.fileName));
   useEffect(() => uploadProgress.subscribe(task.fileName, setPercent), [task.fileName]);
   const displayPercent = task.status === 'success' ? 100 : percent;
@@ -45,13 +47,17 @@ const UploadTaskItem = memo(function UploadTaskItem({
           {task.fileName}
         </span>
         <span className="text-xs tabular-nums text-content-secondary">
-          {task.status === 'error' ? '失败' : task.status === 'pending' ? '等待中' : `${displayPercent}%`}
+          {task.status === 'error'
+            ? t('upload.failed')
+            : task.status === 'pending'
+              ? t('upload.waiting')
+              : `${displayPercent}%`}
         </span>
         {task.status === 'error' && (
           <Button
             type="text"
             size="small"
-            aria-label={`移除 ${task.fileName}`}
+            aria-label={t('upload.removeName', { name: task.fileName })}
             icon={<X size={14} strokeWidth={2} />}
             onClick={() => onRemove(task.fileName)}
           />
@@ -114,6 +120,7 @@ function UploadQueueList({
 
 /** 头部铃铛入口：Badge 展示正在上传的任务数，点击以下拉面板展开上传队列。 */
 export function UploadQueueBell() {
+  const { t } = useI18n();
   const { uploadQueue, removeUpload, clearUploads } = useUIStore();
   // 等待中的任务同样属于“正在进行的上传”，一并计入角标。
   const uploadingCount = uploadQueue.filter(
@@ -137,18 +144,18 @@ export function UploadQueueBell() {
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 id="upload-queue-title" className="m-0 text-sm font-semibold text-content">
-          上传队列
+          {t('upload.uploadQueue')}
         </h3>
         <div className="flex items-center gap-1">
           <Tag bordered={false} className="m-0">
-            {uploadQueue.length} 个任务
+            {t('upload.countTasks', { count: uploadQueue.length })}
           </Tag>
           {uploadQueue.length > 0 && (
-            <Tooltip title="清空所有任务">
+            <Tooltip title={t('upload.clearAllTasks')}>
               <Button
                 type="text"
                 size="small"
-                aria-label="清空所有上传任务"
+                aria-label={t('upload.clearAllUploadTasks')}
                 icon={<Trash2 size={14} strokeWidth={2} />}
                 onClick={handleClear}
               />
@@ -157,7 +164,7 @@ export function UploadQueueBell() {
         </div>
       </div>
       {uploadQueue.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无上传任务" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('upload.noUploadTasks')} />
       ) : (
         <UploadQueueList tasks={uploadQueue} onRemove={handleRemove} />
       )}
@@ -174,11 +181,13 @@ export function UploadQueueBell() {
       popupRender={() => queuePanel}
     >
       <Badge size="small" count={uploadingCount} offset={[-4, 4]}>
-        <Tooltip title="上传任务">
+        <Tooltip title={t('upload.uploadTasks')}>
           <Button
             type="text"
             aria-label={
-              uploadingCount > 0 ? `查看上传任务，${uploadingCount} 个正在上传` : '查看上传任务'
+              uploadingCount > 0
+                ? t('upload.viewUploadTasksCountUploading', { count: uploadingCount })
+                : t('upload.viewUploadTasks')
             }
             icon={<Bell size={18} strokeWidth={1.8} />}
           />

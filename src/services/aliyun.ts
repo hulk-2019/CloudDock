@@ -1,6 +1,7 @@
 import OSS from 'ali-oss';
 import { UPLOAD_PARALLEL_LIMIT, UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
+import { translate } from '@/i18n';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
 
@@ -31,7 +32,7 @@ export class AliOSSService implements ICloudStorageProvider {
   }
 
   async listFiles(path: string, _bucket: string): Promise<FileItem[]> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     // 确保路径以 / 结尾（如果不是根目录）
     const currentPrefix = path === '/' || path === '' ? '' : path.endsWith('/') ? path : `${path}/`;
@@ -115,8 +116,8 @@ export class AliOSSService implements ICloudStorageProvider {
     onProgress?: (percent: number) => void,
     signal?: AbortSignal
   ): Promise<UploadResult> {
-    if (!this.client) throw new Error('Client not initialized');
-    if (signal?.aborted) throw new Error('上传已取消');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
+    if (signal?.aborted) throw new Error(translate('storage.uploadCanceled'));
 
     const fullPath = joinPath(path, file.name);
     const client = this.client;
@@ -161,12 +162,12 @@ export class AliOSSService implements ICloudStorageProvider {
   }
 
   async deleteFile(path: string, _bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
     await this.client.delete(path);
   }
 
   async copyFile(sourcePath: string, targetPath: string, _bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
     await this.client.copy(targetPath, sourcePath);
   }
 
@@ -176,12 +177,12 @@ export class AliOSSService implements ICloudStorageProvider {
   }
 
   async getFileUrl(path: string, _bucket: string, expiresIn: number = 3600): Promise<string> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
     return this.client.signatureUrl(path, { expires: expiresIn });
   }
 
   async listBuckets(): Promise<BucketInfo[]> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const result: any = await this.client.listBuckets({}, {});
 
@@ -193,7 +194,7 @@ export class AliOSSService implements ICloudStorageProvider {
   }
 
   async createFolder(path: string, _bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     // OSS 通过上传空文件来创建文件夹
     const folderPath = path.endsWith('/') ? path : `${path}/`;

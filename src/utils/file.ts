@@ -18,32 +18,29 @@ export function formatFileSize(bytes: number): string {
 /**
  * 格式化日期
  */
-export function formatDate(date: Date): string {
+export function formatDate(date: Date, locale: 'zh-CN' | 'en-US' = 'zh-CN'): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
+  const english = locale === 'en-US';
 
-  // 一分钟内
-  if (diff < 60 * 1000) {
-    return '刚刚';
-  }
+  if (diff < 60 * 1000) return english ? 'Just now' : '刚刚';
 
-  // 一小时内
   if (diff < 60 * 60 * 1000) {
-    return `${Math.floor(diff / (60 * 1000))} 分钟前`;
+    const minutes = Math.floor(diff / (60 * 1000));
+    return english ? `${minutes} min ago` : `${minutes} 分钟前`;
   }
 
-  // 一天内
   if (diff < 24 * 60 * 60 * 1000) {
-    return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`;
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    return english ? `${hours} hr ago` : `${hours} 小时前`;
   }
 
-  // 一周内
   if (diff < 7 * 24 * 60 * 60 * 1000) {
-    return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`;
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    return english ? `${days} day${days === 1 ? '' : 's'} ago` : `${days} 天前`;
   }
 
-  // 显示完整日期
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -87,11 +84,7 @@ export function generateId(): string {
  * 路径处理：拼接路径
  */
 export function joinPath(...parts: string[]): string {
-  return parts
-    .join('/')
-    .replace(/\/+/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '');
+  return parts.join('/').replace(/\/+/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
 /** 将目录路径规范为对象存储使用的形式：根目录为 /，其他目录无首尾斜杠。 */

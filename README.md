@@ -17,6 +17,14 @@ CloudDock lets you browse, upload, preview, organize, and share files in your ob
 > [!IMPORTANT]
 > CloudDock is currently installed from source. There is no official Chrome Web Store release linked by this repository.
 
+## Screenshots
+
+| Extension popup                                                                          | File grid view                                                                           |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| <img src="./public/image-1.png" alt="CloudDock extension popup" width="420" />           | <img src="./public/image-2.png" alt="CloudDock file browser in grid view" width="420" /> |
+| **File list view**                                                                       | **Configuration management**                                                             |
+| <img src="./public/image-3.png" alt="CloudDock file browser in list view" width="420" /> | <img src="./public/image-4.png" alt="CloudDock configuration management" width="420" />  |
+
 ## Features
 
 - **Multi-cloud configurations** — save multiple storage profiles and switch between them from the drawer.
@@ -26,16 +34,17 @@ CloudDock lets you browse, upload, preview, organize, and share files in your ob
 - **File management** — browse folders, create folders, delete objects, copy access links, and move objects by dragging them into folders.
 - **Media preview** — preview supported images and videos without leaving the drawer.
 - **Grid and list views** — switch layouts while browsing large directories.
+- **Bilingual interface** — switch between English and Simplified Chinese at runtime; the preference is synchronized across extension pages.
 - **Local configuration storage** — credentials are encrypted before being stored in `chrome.storage.local`.
 
 ## Provider Support
 
-| Provider | Status | Browse | Upload | File operations | Signed links |
-| --- | --- | :---: | :---: | :---: | :---: |
-| Aliyun OSS | Supported | Yes | Yes | Yes | Yes |
-| Tencent Cloud COS | Supported | Yes | Yes | Yes | Yes |
-| AWS S3 | Supported | Yes | Yes | Yes | Yes |
-| Qiniu Kodo | Adapter scaffold only | No | No | No | No |
+| Provider          | Status                | Browse | Upload | File operations | Signed links |
+| ----------------- | --------------------- | :----: | :----: | :-------------: | :----------: |
+| Aliyun OSS        | Supported             |  Yes   |  Yes   |       Yes       |     Yes      |
+| Tencent Cloud COS | Supported             |  Yes   |  Yes   |       Yes       |     Yes      |
+| AWS S3            | Supported             |  Yes   |  Yes   |       Yes       |     Yes      |
+| Qiniu Kodo        | Adapter scaffold only |   No   |   No   |       No        |      No      |
 
 The Qiniu browser SDK cannot provide all required management APIs and requires a server-generated upload token. Its adapter remains in the codebase for future integration, but it is intentionally unavailable in the configuration UI.
 
@@ -84,11 +93,11 @@ After rebuilding, return to `chrome://extensions/` and reload CloudDock to apply
 
 ## Keyboard Shortcuts
 
-| Action | Windows / Linux | macOS |
-| --- | --- | --- |
-| Toggle the drawer | `Alt + Shift + D` | `Option + Shift + D` |
-| Capture the visible tab and upload it | `Ctrl + Shift + U` | `Command + Shift + U` |
-| Paste an image into the current folder | `Ctrl + V` | `Command + V` |
+| Action                                 | Windows / Linux    | macOS                 |
+| -------------------------------------- | ------------------ | --------------------- |
+| Toggle the drawer                      | `Alt + Shift + D`  | `Option + Shift + D`  |
+| Capture the visible tab and upload it  | `Ctrl + Shift + U` | `Command + Shift + U` |
+| Paste an image into the current folder | `Ctrl + V`         | `Command + V`         |
 
 Chrome lets you review or customize extension shortcuts at `chrome://extensions/shortcuts`.
 

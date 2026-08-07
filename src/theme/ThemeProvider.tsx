@@ -1,7 +1,10 @@
 import { StyleProvider } from '@ant-design/cssinjs';
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
+import enUS from 'antd/locale/en_US';
+import zhCN from 'antd/locale/zh_CN';
 import { type ReactNode, useEffect, useMemo } from 'react';
 
+import { useLocaleStore } from '@/i18n';
 import { THEMES, THEME_META, type ThemeSlug } from './tokens';
 
 interface ThemeProviderProps {
@@ -26,6 +29,8 @@ export function ThemeProvider({
   themeRoot,
   children,
 }: ThemeProviderProps) {
+  const locale = useLocaleStore((state) => state.locale);
+
   useEffect(() => {
     const root = themeRoot ?? document.documentElement;
     root.dataset.theme = slug;
@@ -64,6 +69,7 @@ export function ThemeProvider({
 
   const content = (
     <ConfigProvider
+      locale={locale === 'zh-CN' ? zhCN : enUS}
       componentSize={density}
       getPopupContainer={popupContainer ? () => popupContainer : undefined}
       theme={{
@@ -80,5 +86,9 @@ export function ThemeProvider({
     </ConfigProvider>
   );
 
-  return styleContainer ? <StyleProvider container={styleContainer}>{content}</StyleProvider> : content;
+  return styleContainer ? (
+    <StyleProvider container={styleContainer}>{content}</StyleProvider>
+  ) : (
+    content
+  );
 }

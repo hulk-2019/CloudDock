@@ -3,6 +3,7 @@ import { useCloudStorage } from './useCloudStorage';
 import { useUIStore } from '@/store/ui';
 import { useConfigStore } from '@/store/config';
 import { uploadProgress } from '@/lib/uploadProgress';
+import { translate } from '@/i18n';
 import { isImageFile, isVideoFile, normalizeDirectoryPath } from '@/utils/file';
 
 /**
@@ -23,7 +24,7 @@ export function useFileUpload() {
       const activeConfig = getActiveConfig();
 
       if (!provider || !activeConfig) {
-        throw new Error('云存储服务未初始化');
+        throw new Error(translate('upload.cloudStorageIsNotInitialized'));
       }
 
       uploadProgress.publish(file.name, 0);

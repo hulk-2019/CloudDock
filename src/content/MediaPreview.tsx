@@ -4,6 +4,7 @@ import Captions from 'yet-another-react-lightbox/plugins/captions';
 import Counter from 'yet-another-react-lightbox/plugins/counter';
 import Video from 'yet-another-react-lightbox/plugins/video';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import { useI18n } from '@/i18n';
 import type { FileItem } from '@/types';
 import { formatFileSize, isVideoFile } from '@/utils/file';
 
@@ -39,6 +40,7 @@ export function MediaPreview({
   getFileUrl,
   getContainer,
 }: MediaPreviewProps) {
+  const { t } = useI18n();
   // 列表返回的预签名 URL 可能已临近过期，打开预览时为当前文件换取新链接。
   const [freshUrls, setFreshUrls] = useState<Record<string, string>>({});
 
@@ -97,6 +99,20 @@ export function MediaPreview({
       index={Math.max(currentIndex, 0)}
       slides={slides}
       plugins={[Captions, Counter, Video, Zoom]}
+      labels={{
+        Previous: t('preview.previous'),
+        Next: t('preview.next'),
+        Close: t('preview.closePreview'),
+        Slide: t('preview.media'),
+        Carousel: t('preview.mediaPreview'),
+        Lightbox: t('preview.mediaPreview'),
+        'Photo gallery': t('preview.mediaGallery'),
+        'Zoom in': t('preview.zoomIn'),
+        'Zoom out': t('preview.zoomOut'),
+        Caption: t('preview.caption'),
+        'Show captions': t('preview.showCaptions'),
+        'Hide captions': t('preview.hideCaptions'),
+      }}
       portal={{ root: getContainer }}
       carousel={{ finite: files.length <= 1 }}
       controller={{ closeOnBackdropClick: true }}

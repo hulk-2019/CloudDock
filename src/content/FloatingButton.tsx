@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Draggable, { type DraggableData, type DraggableEvent } from 'react-draggable';
 import { Button } from 'antd';
 import { Camera, CloudUpload, FolderOpen, HelpCircle } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import { useConfigStore } from '@/store/config';
 
 interface FloatingButtonProps {
@@ -30,6 +31,7 @@ function clampPosition(position: { x: number; y: number }) {
 }
 
 const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
+  const { t } = useI18n();
   const { floatingButtonPosition, setFloatingButtonPosition } = useConfigStore();
   const [showMenu, setShowMenu] = useState(false);
   const [position, setPosition] = useState(() =>
@@ -68,9 +70,9 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
         <Button
           type="primary"
           shape="circle"
-          aria-label="打开 CloudDock"
+          aria-label={t('common.openCloudDrive')}
           aria-expanded={showMenu}
-          title="打开 CloudDock；右键查看更多操作"
+          title={`${t('content.clickToOpenCloudDock')} · ${t('content.dragToReposition')}`}
           className="clouddock-drag-handle flex !h-12 !w-12 !min-w-[48px] !p-0 cursor-grab items-center justify-center border border-white/20 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl active:cursor-grabbing active:scale-95 active:shadow-md"
           icon={<CloudUpload size={24} strokeWidth={2} />}
           onClick={onClick}
@@ -91,7 +93,7 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
                 onClick();
               }}
             >
-              打开云盘
+              {t('common.openCloudDrive')}
             </Button>
             <Button
               type="text"
@@ -102,7 +104,7 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
                 onScreenshot?.();
               }}
             >
-              截图上传
+              {t('common.captureAndUpload')}
             </Button>
             <Button
               type="text"
@@ -113,7 +115,7 @@ const FloatingButton = ({ onClick, onScreenshot }: FloatingButtonProps) => {
                 chrome.runtime.openOptionsPage();
               }}
             >
-              使用帮助
+              {t('common.help')}
             </Button>
           </div>
         )}

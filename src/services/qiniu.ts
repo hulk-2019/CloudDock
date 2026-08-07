@@ -1,6 +1,7 @@
 import * as qiniu from 'qiniu-js';
 import { UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
+import { translate } from '@/i18n';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
 
@@ -18,7 +19,7 @@ export class QiniuService implements ICloudStorageProvider {
   async listFiles(path: string, bucket: string): Promise<FileItem[]> {
     // 七牛云的 JS SDK 不支持列举文件，需要通过服务端 API
     // 这里返回空数组，实际使用时需要自建后端 API
-    throw new Error('七牛云 JS SDK 不支持文件列举，请使用服务端 API');
+    throw new Error(translate('storage.qiniuListFilesUnsupported'));
   }
 
   async uploadFile(
@@ -28,8 +29,8 @@ export class QiniuService implements ICloudStorageProvider {
     onProgress?: (percent: number) => void,
     signal?: AbortSignal
   ): Promise<UploadResult> {
-    if (!this.config) throw new Error('Client not initialized');
-    if (signal?.aborted) throw new Error('上传已取消');
+    if (!this.config) throw new Error(translate('storage.clientIsNotInitialized'));
+    if (signal?.aborted) throw new Error(translate('storage.uploadCanceled'));
 
     // 七牛云上传需要 token，这里需要从服务端获取
     // 实际使用时需要实现 getUploadToken 方法
@@ -54,7 +55,7 @@ export class QiniuService implements ICloudStorageProvider {
       const subscription = observable.subscribe({
         next: (result) => {
           if (onProgress && result.total) {
-            onProgress((result.total.percent || 0));
+            onProgress(result.total.percent || 0);
           }
         },
         error: (err) => {
@@ -75,7 +76,7 @@ export class QiniuService implements ICloudStorageProvider {
       const handleAbort = () => {
         // 退订即中止上传，observable 不会再发出事件，需要主动拒绝。
         subscription.unsubscribe();
-        reject(new Error('上传已取消'));
+        reject(new Error(translate('storage.uploadCanceled')));
       };
       signal?.addEventListener('abort', handleAbort, { once: true });
     });
@@ -84,33 +85,33 @@ export class QiniuService implements ICloudStorageProvider {
   private async getUploadToken(bucket: string): Promise<string> {
     // 这里需要从你的后端服务获取上传 token
     // 示例：return await fetch('/api/qiniu/token').then(r => r.text());
-    throw new Error('需要实现 getUploadToken 方法从服务端获取上传凭证');
+    throw new Error(translate('storage.qiniuUploadTokenRequired'));
   }
 
   async deleteFile(path: string, bucket: string): Promise<void> {
-    throw new Error('七牛云 JS SDK 不支持删除操作，请使用服务端 API');
+    throw new Error(translate('storage.qiniuDeleteUnsupported'));
   }
 
   async copyFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
-    throw new Error('七牛云 JS SDK 不支持复制操作，请使用服务端 API');
+    throw new Error(translate('storage.qiniuCopyUnsupported'));
   }
 
   async moveFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
-    throw new Error('七牛云 JS SDK 不支持移动操作，请使用服务端 API');
+    throw new Error(translate('storage.qiniuMoveUnsupported'));
   }
 
   async getFileUrl(path: string, bucket: string, expiresIn?: number): Promise<string> {
-    if (!this.config) throw new Error('Client not initialized');
+    if (!this.config) throw new Error(translate('storage.clientIsNotInitialized'));
     return `https://${this.config.endpoint}/${path}`;
   }
 
   async listBuckets(): Promise<BucketInfo[]> {
-    throw new Error('七牛云 JS SDK 不支持列举 Bucket，请使用服务端 API');
+    throw new Error(translate('storage.qiniuListBucketsUnsupported'));
   }
 
   async createFolder(path: string, bucket: string): Promise<void> {
     // 七牛云没有文件夹概念，只有带前缀的文件
     // 可以通过上传一个空文件来模拟
-    throw new Error('七牛云不支持创建文件夹');
+    throw new Error(translate('storage.qiniuKodoDoesNotSupportCreatingFolders'));
   }
 }

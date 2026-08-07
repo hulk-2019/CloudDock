@@ -1,3 +1,4 @@
+import { translate } from '@/i18n';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 
 /**
@@ -136,7 +137,11 @@ export class CloudStorageFactory {
         break;
       }
       default:
-        throw new Error(`Unsupported provider: ${config.provider}`);
+        throw new Error(
+          translate('storage.unsupportedCloudStorageProviderProvider', {
+            provider: config.provider,
+          })
+        );
     }
 
     await provider.init(config);

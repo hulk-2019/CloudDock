@@ -1,6 +1,7 @@
 import COS from 'cos-js-sdk-v5';
 import { UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
+import { translate } from '@/i18n';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
 
@@ -20,7 +21,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async listFiles(path: string, bucket: string): Promise<FileItem[]> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const prefix = path === '/' || path === '' ? '' : path.endsWith('/') ? path : `${path}/`;
 
@@ -79,8 +80,8 @@ export class TencentCOSService implements ICloudStorageProvider {
     onProgress?: (percent: number) => void,
     signal?: AbortSignal
   ): Promise<UploadResult> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
-    if (signal?.aborted) throw new Error('上传已取消');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
+    if (signal?.aborted) throw new Error(translate('storage.uploadCanceled'));
 
     const fullPath = joinPath(path, file.name);
     const client = this.client;
@@ -127,7 +128,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async deleteFile(path: string, bucket: string): Promise<void> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
 
     return new Promise((resolve, reject) => {
       this.client!.deleteObject(
@@ -145,7 +146,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async copyFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
 
     // CopySource 中的对象键必须 URL 编码，否则中文/特殊字符文件名会报 NoSuchKey。
     const encodedSource = sourcePath.split('/').map(encodeURIComponent).join('/');
@@ -172,7 +173,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async getFileUrl(path: string, bucket: string, expiresIn: number = 3600): Promise<string> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
 
     return new Promise((resolve, reject) => {
       this.client!.getObjectUrl(
@@ -192,7 +193,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async listBuckets(): Promise<BucketInfo[]> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     return new Promise((resolve, reject) => {
       this.client!.getService((err, data) => {
@@ -210,7 +211,7 @@ export class TencentCOSService implements ICloudStorageProvider {
   }
 
   async createFolder(path: string, bucket: string): Promise<void> {
-    if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (!this.client || !this.config) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const folderPath = path.endsWith('/') ? path : `${path}/`;
 

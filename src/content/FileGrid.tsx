@@ -25,6 +25,7 @@ import {
   PlayCircle,
   Trash2,
 } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { FileItem, FileViewMode } from '@/types';
 import { formatDate, formatFileSize, isImageFile, isVideoFile } from '@/utils/file';
 import { cn } from '@/lib/utils';
@@ -62,9 +63,7 @@ function FilePreview({ file, compact = false }: { file: FileItem; compact?: bool
   useEffect(() => setFailed(false), [file.url]);
 
   if (file.type === 'folder') {
-    return (
-      <FolderOpen size={compact ? 22 : 58} strokeWidth={1.8} className="text-primary" />
-    );
+    return <FolderOpen size={compact ? 22 : 58} strokeWidth={1.8} className="text-primary" />;
   }
 
   if (isImageFile(file.name) && file.url && !failed) {
@@ -154,6 +153,7 @@ export function FileGrid({
   onFolderDragLeave,
   onFolderDrop,
 }: FileGridProps) {
+  const { t, locale } = useI18n();
   const { columns, estimatedRowHeight } = VIEW_MODE_LAYOUT[viewMode];
   const listRef = useRef<HTMLDivElement>(null);
   // 列表上方可能有错误提示等内容，行位置需要加上列表在滚动容器内的偏移。
@@ -193,7 +193,7 @@ export function FileGrid({
   if (loading && files.length === 0) {
     return (
       <div className="flex min-h-56 items-center justify-center">
-        <Spin tip="正在读取云端文件" />
+        <Spin tip={t('files.loadingCloudFiles')} />
       </div>
     );
   }
@@ -201,7 +201,10 @@ export function FileGrid({
   if (files.length === 0) {
     return (
       <div className="flex min-h-56 items-center justify-center rounded border border-dashed border-border bg-surface p-6">
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="此文件夹为空，拖入文件即可上传" />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={t('files.thisFolderIsEmptyDropFilesHereToUpload')}
+        />
       </div>
     );
   }
@@ -216,7 +219,7 @@ export function FileGrid({
         role="button"
         tabIndex={0}
         draggable
-        aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
+        aria-label={`${t(file.type === 'folder' ? 'files.folder' : 'files.file')} ${file.name}`}
         className={cn(
           'group cursor-pointer border-border bg-surface shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
           isDropTarget && 'border-primary ring-2 ring-primary',
@@ -237,11 +240,11 @@ export function FileGrid({
           <FilePreview file={file} />
           <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
             {file.type === 'file' && (
-              <Tooltip title="复制链接">
+              <Tooltip title={t('files.copyLink')}>
                 <Button
                   size="small"
                   shape="circle"
-                  aria-label={`复制 ${file.name} 的链接`}
+                  aria-label={t('files.copyLinkForName', { name: file.name })}
                   className="border-border bg-surface text-content shadow"
                   icon={<Link size={14} strokeWidth={2} />}
                   onClick={(event) => {
@@ -251,12 +254,12 @@ export function FileGrid({
                 />
               </Tooltip>
             )}
-            <Tooltip title="删除">
+            <Tooltip title={t('config.delete')}>
               <Button
                 danger
                 size="small"
                 shape="circle"
-                aria-label={`删除 ${file.name}`}
+                aria-label={t('config.deleteName2', { name: file.name })}
                 className="bg-surface shadow"
                 icon={<Trash2 size={14} strokeWidth={2} />}
                 onClick={(event) => {
@@ -272,7 +275,7 @@ export function FileGrid({
         </div>
         <div className="mt-1 truncate text-xs text-content-secondary">
           {file.type === 'file' ? `${formatFileSize(file.size)} · ` : ''}
-          {formatDate(file.lastModified)}
+          {formatDate(file.lastModified, locale)}
         </div>
       </Card>
     );
@@ -287,7 +290,7 @@ export function FileGrid({
         role="button"
         tabIndex={0}
         draggable
-        aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
+        aria-label={`${t(file.type === 'folder' ? 'files.folder' : 'files.file')} ${file.name}`}
         className={cn(
           'group flex cursor-pointer items-center gap-3 rounded border border-border bg-surface px-3 py-2 shadow-sm transition hover:border-primary/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
           isDropTarget && 'border-primary ring-2 ring-primary',
@@ -312,16 +315,16 @@ export function FileGrid({
           </span>
           <span className="block truncate text-xs text-content-secondary">
             {file.type === 'file' ? `${formatFileSize(file.size)} · ` : ''}
-            {formatDate(file.lastModified)}
+            {formatDate(file.lastModified, locale)}
           </span>
         </span>
         <span className="flex shrink-0 gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
           {file.type === 'file' && (
-            <Tooltip title="复制链接">
+            <Tooltip title={t('files.copyLink')}>
               <Button
                 size="small"
                 type="text"
-                aria-label={`复制 ${file.name} 的链接`}
+                aria-label={t('files.copyLinkForName', { name: file.name })}
                 icon={<Link size={14} strokeWidth={2} />}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -330,12 +333,12 @@ export function FileGrid({
               />
             </Tooltip>
           )}
-          <Tooltip title="删除">
+          <Tooltip title={t('config.delete')}>
             <Button
               danger
               size="small"
               type="text"
-              aria-label={`删除 ${file.name}`}
+              aria-label={t('config.deleteName2', { name: file.name })}
               icon={<Trash2 size={14} strokeWidth={2} />}
               onClick={(event) => {
                 event.stopPropagation();
