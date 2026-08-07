@@ -1,30 +1,34 @@
 import { Select, Tag } from 'antd';
 import { Check, ChevronDown, Cloud } from 'lucide-react';
+import { useI18n, type TranslationKey } from '@/i18n';
 import { useConfigStore } from '@/store/config';
 
 const providerLabels = {
-  aliyun: '阿里云 OSS',
-  tencent: '腾讯云 COS',
-  qiniu: '七牛云 Kodo',
-  aws: 'AWS S3',
-} as const;
+  aliyun: 'provider.aliyunOss',
+  tencent: 'provider.tencentCos',
+  qiniu: 'provider.qiniuKodo',
+  aws: 'provider.awsS3',
+} as const satisfies Record<string, TranslationKey>;
 
 interface ConfigSwitcherProps {
   compact?: boolean;
 }
 
 export function ConfigSwitcher({ compact = false }: ConfigSwitcherProps) {
+  const { t } = useI18n();
   const { configs, activeConfigId, setActiveConfig } = useConfigStore();
 
   return (
     <Select
-      aria-label="选择云存储配置"
+      aria-label={t('config.selectAStorageConfiguration')}
       className="w-full"
       value={activeConfigId ?? undefined}
-      placeholder={compact ? "选择配置" : "选择一个云存储配置"}
+      placeholder={t(compact ? 'config.selectConfiguration' : 'config.selectAStorageConfiguration')}
       suffixIcon={<ChevronDown className="text-content-secondary" size={16} strokeWidth={2} />}
       onChange={setActiveConfig}
-      notFoundContent={<span className="text-content-secondary">暂无配置</span>}
+      notFoundContent={
+        <span className="text-content-secondary">{t('config.noConfigurationsYet')}</span>
+      }
       optionLabelProp="label"
       options={configs.map((config) => ({
         value: config.id,
@@ -42,12 +46,12 @@ export function ConfigSwitcher({ compact = false }: ConfigSwitcherProps) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold text-content">{config.name}</span>
               <span className="block truncate text-xs text-content-secondary">
-                {providerLabels[config.provider]} · {config.bucket}
+                {t(providerLabels[config.provider])} · {config.bucket}
               </span>
             </span>
             {config.id === activeConfigId && (
               <Tag color="blue" bordered={false} icon={<Check size={12} strokeWidth={2} />}>
-                当前
+                {t('config.active')}
               </Tag>
             )}
           </div>

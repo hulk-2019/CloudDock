@@ -1,4 +1,5 @@
 import { isImageFile, isVideoFile } from './file';
+import { translate } from '@/i18n';
 
 /**
  * 截取当前标签页的屏幕截图
@@ -10,7 +11,7 @@ export async function captureScreenshot(): Promise<File> {
   });
 
   if (!response.success) {
-    throw new Error(response.error || '截图失败');
+    throw new Error(response.error || translate('screenshot.captureFailed'));
   }
 
   // 将 dataURL 转换为 Blob

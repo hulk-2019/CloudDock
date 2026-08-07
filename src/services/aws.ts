@@ -11,6 +11,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import { S3_MIN_PART_SIZE_BYTES, UPLOAD_PARALLEL_LIMIT, UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
+import { translate } from '@/i18n';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
 
@@ -40,7 +41,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async listFiles(path: string, bucket: string): Promise<FileItem[]> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const prefix = path === '/' || path === '' ? '' : path.endsWith('/') ? path : `${path}/`;
 
@@ -94,8 +95,8 @@ export class AWSS3Service implements ICloudStorageProvider {
     onProgress?: (percent: number) => void,
     signal?: AbortSignal
   ): Promise<UploadResult> {
-    if (!this.client) throw new Error('Client not initialized');
-    if (signal?.aborted) throw new Error('上传已取消');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
+    if (signal?.aborted) throw new Error(translate('storage.uploadCanceled'));
 
     const fullPath = joinPath(path, file.name);
 
@@ -146,7 +147,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async deleteFile(path: string, bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const command = new DeleteObjectCommand({
       Bucket: bucket,
@@ -157,7 +158,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async copyFile(sourcePath: string, targetPath: string, bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     // CopySource 要求 URL 编码的对象键，否则中文/特殊字符文件名会复制失败。
     const encodedSource = sourcePath.split('/').map(encodeURIComponent).join('/');
@@ -176,7 +177,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async getFileUrl(path: string, bucket: string, expiresIn: number = 3600): Promise<string> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const command = new GetObjectCommand({
       Bucket: bucket,
@@ -187,7 +188,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async listBuckets(): Promise<BucketInfo[]> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const command = new ListBucketsCommand({});
     const response = await this.client.send(command);
@@ -200,7 +201,7 @@ export class AWSS3Service implements ICloudStorageProvider {
   }
 
   async createFolder(path: string, bucket: string): Promise<void> {
-    if (!this.client) throw new Error('Client not initialized');
+    if (!this.client) throw new Error(translate('storage.clientIsNotInitialized'));
 
     const folderPath = path.endsWith('/') ? path : `${path}/`;
 

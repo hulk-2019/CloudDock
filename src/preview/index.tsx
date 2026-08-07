@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@/i18n';
 import { useConfigStore } from '@/store/config';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import DrawerPanel from '@/content/DrawerPanel';
@@ -22,9 +23,14 @@ function DrawerApp() {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      const data = event.data as
-        | { type?: string; visible?: boolean; active?: boolean; files?: File[]; html?: string; uriList?: string }
-        | null;
+      const data = event.data as {
+        type?: string;
+        visible?: boolean;
+        active?: boolean;
+        files?: File[];
+        html?: string;
+        uriList?: string;
+      } | null;
       if (!data || typeof data.type !== 'string') return;
 
       if (data.type === 'clouddock:set-visible' && typeof data.visible === 'boolean') {
@@ -71,7 +77,9 @@ function DrawerApp() {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <ThemeProvider slug="modern-glass" density="middle">
-    <DrawerApp />
-  </ThemeProvider>
+  <I18nProvider>
+    <ThemeProvider slug="modern-glass" density="middle">
+      <DrawerApp />
+    </ThemeProvider>
+  </I18nProvider>
 );

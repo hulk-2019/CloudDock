@@ -4,11 +4,13 @@ import type { ICloudStorageProvider } from '@/services/base';
 import type { CloudConfig, FileItem } from '@/types';
 import { useConfigStore } from '@/store/config';
 import { useFileStore } from '@/store/files';
+import { translate } from '@/i18n';
 import { validateBucketName } from '@/utils/configValidation';
 import { isImageFile, isVideoFile, joinPath, normalizeDirectoryPath } from '@/utils/file';
 
 const REFRESH_RETRY_DELAYS = [0, 250, 700];
-const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const sameStoragePath = (left: string, right: string) => joinPath(left) === joinPath(right);
 
 interface ProviderBinding {
@@ -54,7 +56,7 @@ export function useCloudStorage() {
     try {
       const bucketValidation = validateBucketName(activeConfig.provider, activeConfig.bucket);
       if (!bucketValidation.valid) {
-        throw new Error(bucketValidation.message || 'Bucket 名称不符合云厂商规范');
+        throw new Error(translate(bucketValidation.message || 'config.theBucketNameIsInvalid'));
       }
 
       const response = await chrome.runtime.sendMessage({
@@ -64,7 +66,7 @@ export function useCloudStorage() {
 
       if (!response.success || !response.data) {
         setBinding(null);
-        setError('未找到云存储凭证，请先配置 AccessKey');
+        setError(translate('storage.credentialsMissing'));
         return;
       }
 
@@ -102,8 +104,7 @@ export function useCloudStorage() {
     const fileList = await provider.listFiles(normalizedCurrentPath, activeConfig.bucket);
     return Promise.all(
       fileList.map(async (file) => {
-        const isMedia =
-          file.type === 'file' && (isImageFile(file.name) || isVideoFile(file.name));
+        const isMedia = file.type === 'file' && (isImageFile(file.name) || isVideoFile(file.name));
         if (!isMedia) return file;
 
         try {
@@ -160,7 +161,8 @@ export function useCloudStorage() {
           const found = remoteFiles.some((item) => sameStoragePath(item.path, expectedPath));
           const localFiles = useFileStore.getState().files;
           const localOnlyFiles = localFiles.filter(
-            (localItem) => !remoteFiles.some((remoteItem) => sameStoragePath(remoteItem.path, localItem.path))
+            (localItem) =>
+              !remoteFiles.some((remoteItem) => sameStoragePath(remoteItem.path, localItem.path))
           );
           setFiles([...remoteFiles, ...localOnlyFiles]);
 
@@ -215,7 +217,9 @@ export function useCloudStorage() {
         await removePath(path);
         await refresh();
       } catch (deleteError) {
-        throw new Error(`删除失败: ${(deleteError as Error).message}`);
+        throw new Error(
+          translate('storage.deleteFailedError', { error: (deleteError as Error).message })
+        );
       }
     },
     [getActiveConfig, provider, refresh]
@@ -261,7 +265,12 @@ export function useCloudStorage() {
                 await provider.moveFile(child.path, `${targetDir}${child.name}`, bucket);
               }
             } catch (childError) {
-              throw new Error(`迁移「${child.path}」失败: ${(childError as Error).message}`);
+              throw new Error(
+                translate('storage.failedToMovePathError', {
+                  path: child.path,
+                  error: (childError as Error).message,
+                })
+              );
             }
           }
 
@@ -270,7 +279,11 @@ export function useCloudStorage() {
             children.some((child) => child.path === item.path)
           );
           if (stuck) {
-            throw new Error(`「${stuck.path}」迁移后仍存在于源目录，已中止以避免数据不一致`);
+            throw new Error(
+              translate('storage.moveConsistencyError', {
+                path: stuck.path,
+              })
+            );
           }
           children = remaining;
         }
@@ -280,7 +293,10 @@ export function useCloudStorage() {
           await provider.deleteFile(sourceDir, bucket);
         } catch (placeholderError) {
           throw new Error(
-            `删除源目录「${sourceDir}」失败: ${(placeholderError as Error).message}`
+            translate('storage.failedToDeleteSourceFolderPathError', {
+              path: sourceDir,
+              error: (placeholderError as Error).message,
+            })
           );
         }
       };
@@ -290,7 +306,7 @@ export function useCloudStorage() {
           const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`;
           if (targetDir === sourcePath) return;
           if (targetDir.startsWith(sourcePath)) {
-            throw new Error('不能将文件夹移动到自身或其子目录中');
+            throw new Error(translate('storage.folderMoveIntoDescendant'));
           }
           await moveFolderRecursive(sourcePath, targetDir);
         } else {
@@ -298,7 +314,9 @@ export function useCloudStorage() {
         }
         await refresh();
       } catch (moveError) {
-        throw new Error(`移动失败: ${(moveError as Error).message}`);
+        throw new Error(
+          translate('storage.moveFailedError', { error: (moveError as Error).message })
+        );
       }
     },
     [getActiveConfig, provider, refresh]
@@ -312,7 +330,9 @@ export function useCloudStorage() {
       try {
         return await provider.getFileUrl(path, activeConfig.bucket);
       } catch (urlError) {
-        throw new Error(`获取链接失败: ${(urlError as Error).message}`);
+        throw new Error(
+          translate('storage.failedToGetLinkError', { error: (urlError as Error).message })
+        );
       }
     },
     [getActiveConfig, provider]
@@ -334,7 +354,9 @@ export function useCloudStorage() {
           lastModified: new Date(),
         });
       } catch (createError) {
-        throw new Error(`创建文件夹失败: ${(createError as Error).message}`);
+        throw new Error(
+          translate('storage.failedToCreateFolderError', { error: (createError as Error).message })
+        );
       }
     },
     [getActiveConfig, normalizedCurrentPath, provider, refreshUntilVisible]

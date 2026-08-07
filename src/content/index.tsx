@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@/i18n';
 import { useUIStore } from '@/store/ui';
 import { useConfigStore } from '@/store/config';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -243,7 +244,9 @@ function App() {
           colorScheme: 'normal',
         }}
       />
-      {overlayMounted && <div ref={overlayRef} style={{ position: 'absolute', inset: 0, zIndex: 1 }} />}
+      {overlayMounted && (
+        <div ref={overlayRef} style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
+      )}
     </>
   );
 }
@@ -294,15 +297,17 @@ function init() {
   shadowRoot.appendChild(appContainer);
 
   createRoot(appContainer).render(
-    <ThemeProvider
-      slug="modern-glass"
-      density="middle"
-      styleContainer={shadowRoot}
-      popupContainer={appContainer}
-      themeRoot={appContainer}
-    >
-      <App />
-    </ThemeProvider>
+    <I18nProvider>
+      <ThemeProvider
+        slug="modern-glass"
+        density="middle"
+        styleContainer={shadowRoot}
+        popupContainer={appContainer}
+        themeRoot={appContainer}
+      >
+        <App />
+      </ThemeProvider>
+    </I18nProvider>
   );
 }
 

@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Upload,
 } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import type { FileViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -32,11 +33,11 @@ interface CrumbItem {
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-function buildCrumbs(currentPath: string): CrumbItem[] {
+function buildCrumbs(currentPath: string, rootName: string): CrumbItem[] {
   const parts = currentPath.split('/').filter(Boolean);
   let accumulatedPath = '';
   return [
-    { name: '根目录', path: '/', root: true },
+    { name: rootName, path: '/', root: true },
     ...parts.map((part) => {
       accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part;
       return { name: part, path: accumulatedPath, root: false };
@@ -82,7 +83,8 @@ export function BreadcrumbToolbar({
   onCreateFolder,
   onToggleViewMode,
 }: BreadcrumbToolbarProps) {
-  const crumbs = buildCrumbs(currentPath);
+  const { t } = useI18n();
+  const crumbs = buildCrumbs(currentPath, t('files.root'));
   const shouldCollapse = crumbs.length > MAX_VISIBLE_CRUMBS;
   const hiddenCrumbs = shouldCollapse ? crumbs.slice(1, -2) : [];
   const visibleCrumbs = shouldCollapse ? [crumbs[0], ...crumbs.slice(-2)] : crumbs;
@@ -103,7 +105,7 @@ export function BreadcrumbToolbar({
   return (
     <div className="flex min-h-11 items-center gap-2 border-b border-border pb-3">
       <nav
-        aria-label="当前文件路径"
+        aria-label={t('files.currentFilePath')}
         className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <ol className="m-0 flex min-w-max items-center gap-1 p-0 [list-style:none]">
@@ -131,8 +133,10 @@ export function BreadcrumbToolbar({
                     >
                       <button
                         type="button"
-                        aria-label={`查看省略的 ${hiddenCrumbs.length} 层路径`}
-                        title="查看省略的路径"
+                        aria-label={t('files.viewCountHiddenPathLevels', {
+                          count: hiddenCrumbs.length,
+                        })}
+                        title={t('files.viewHiddenPath')}
                         className="flex cursor-pointer items-center rounded border-0 bg-transparent px-2 py-1 text-content-secondary transition hover:bg-bg hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                       >
                         <MoreHorizontal aria-hidden size={17} strokeWidth={1.8} />
@@ -154,10 +158,10 @@ export function BreadcrumbToolbar({
       </nav>
 
       <div className="flex shrink-0 items-center gap-1 border-l border-border pl-2">
-        <Tooltip title="刷新文件列表">
+        <Tooltip title={t('files.refreshFileList')}>
           <Button
             type="text"
-            aria-label="刷新文件列表"
+            aria-label={t('files.refreshFileList')}
             icon={
               <RefreshCw size={16} strokeWidth={1.8} className={loading ? 'animate-spin' : ''} />
             }
@@ -165,28 +169,32 @@ export function BreadcrumbToolbar({
             disabled={loading}
           />
         </Tooltip>
-        <Tooltip title="上传文件（可多选）">
+        <Tooltip title={t('files.uploadFilesMultipleSelectionSupported')}>
           <Button
             type="text"
-            aria-label="选择文件上传"
+            aria-label={t('files.selectFilesToUpload')}
             className="text-primary"
             icon={<Upload size={16} strokeWidth={1.8} />}
             onClick={onSelectFiles}
           />
         </Tooltip>
-        <Tooltip title="新建文件夹">
+        <Tooltip title={t('files.newFolder')}>
           <Button
             type="text"
-            aria-label="新建文件夹"
+            aria-label={t('files.newFolder')}
             className="text-primary"
             icon={<FolderPlus size={17} strokeWidth={1.8} />}
             onClick={onCreateFolder}
           />
         </Tooltip>
-        <Tooltip title={viewMode === 'grid' ? '切换为列表视图' : '切换为卡片视图'}>
+        <Tooltip
+          title={t(viewMode === 'grid' ? 'files.switchToListView' : 'files.switchToGridView')}
+        >
           <Button
             type="text"
-            aria-label={viewMode === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+            aria-label={t(
+              viewMode === 'grid' ? 'files.switchToListView' : 'files.switchToGridView'
+            )}
             icon={
               viewMode === 'grid' ? (
                 <List size={17} strokeWidth={1.8} />

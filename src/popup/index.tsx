@@ -9,6 +9,8 @@ import {
   LocateFixed,
   MousePointer2,
 } from 'lucide-react';
+import LanguageSwitcher from '@/content/LanguageSwitcher';
+import { I18nProvider, useI18n } from '@/i18n';
 import { useConfigStore } from '@/store/config';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import './styles.css';
@@ -18,12 +20,13 @@ async function sendToActiveTab(message: Record<string, unknown>) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab.id) await chrome.tabs.sendMessage(tab.id, message);
   } catch {
-    // chrome://、扩展商店等页面不允许注入内容脚本；设置仍会保存并在下次加载时生效。
+    // Protected browser pages do not accept content-script messages.
   }
 }
 
 function Popup() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const {
     loadConfig,
     floatingButtonEnabled,
@@ -46,8 +49,7 @@ function Popup() {
       await chrome.tabs.sendMessage(tab.id, { action: 'toggleDrawer' });
       window.close();
     } catch {
-      // chrome://、扩展商店等页面无法注入内容脚本，没有消息接收方。
-      message.warning('当前页面不支持打开云盘，请切换到普通网页后再试');
+      message.warning(t('popup.unsupportedPage'));
     }
   };
 
@@ -59,14 +61,14 @@ function Popup() {
   const resetFloatingButtonPosition = () => {
     setFloatingButtonPosition(null);
     void sendToActiveTab({ action: 'resetFloatingButtonPosition' });
-    message.success('悬浮按钮已恢复到右下角');
+    message.success(t('popup.floatingButtonReset'));
   };
 
   return (
-    <main className="w-[360px] min-h-screen bg-bg backdrop-blur p-5 font-sans text-content">
+    <main className="min-h-screen w-[360px] bg-bg p-5 font-sans text-content backdrop-blur">
       <header className="mb-5 flex items-center gap-3">
         <span className="flex h-12 w-12 items-center justify-center rounded border border-border bg-surface text-primary shadow">
-          <Cloud size={24} strokeWidth={2} />
+          <Cloud size={24} strokeWidth={2} aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -75,45 +77,53 @@ function Popup() {
               v{chrome.runtime.getManifest().version}
             </Tag>
           </div>
-          <p className="m-0 text-sm text-content-secondary">云端存储，随手可得</p>
+          <p className="m-0 text-sm text-content-secondary">{t('common.tagline')}</p>
         </div>
+        <LanguageSwitcher />
       </header>
 
-      <section className="space-y-3" aria-label="CloudDock 操作">
+      <section className="space-y-3" aria-label={t('popup.actions')}>
         <Card className="border-border bg-surface shadow" styles={{ body: { padding: 12 } }}>
           <Button
             type="primary"
             size="large"
             block
-            className="h-auto min-h-16 justify-start shadow active:translate-y-px active:shadow-none"
-            icon={<FolderOpen size={20} strokeWidth={2} />}
+            className="h-auto min-h-16 justify-start overflow-hidden shadow active:translate-y-px active:shadow-none"
+            icon={<FolderOpen size={20} strokeWidth={2} aria-hidden />}
             onClick={toggleDrawer}
           >
-            <span className="flex min-w-0 flex-1 flex-col items-start px-1 text-left">
-              <strong>打开云盘</strong>
-              <small className="font-normal opacity-80">浏览、上传和管理云端文件</small>
+            <span className="flex min-w-0 flex-1 flex-col items-start overflow-hidden px-1 text-left">
+              <strong className="block max-w-full truncate">{t('common.openCloudDrive')}</strong>
+              <small
+                className="block max-w-full truncate font-normal opacity-80"
+                title={t('popup.browseUploadAndManageCloudFiles')}
+              >
+                {t('popup.browseUploadAndManageCloudFiles')}
+              </small>
             </span>
-            <ArrowRight size={17} strokeWidth={2} />
+            <ArrowRight className="shrink-0" size={17} strokeWidth={2} aria-hidden />
           </Button>
         </Card>
 
         <Card
           className="border-border bg-surface shadow"
-          title={<span className="text-sm text-content">悬浮按钮</span>}
+          title={<span className="text-sm text-content">{t('common.floatingButton')}</span>}
           styles={{ body: { padding: 12 } }}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-bg text-primary">
-                <MousePointer2 size={17} strokeWidth={1.8} />
+                <MousePointer2 size={17} strokeWidth={1.8} aria-hidden />
               </span>
               <div className="min-w-0">
-                <div className="text-sm font-medium text-content">在网页中显示</div>
-                <p className="m-0 mt-1 text-xs text-content-secondary">关闭后仍可从扩展图标打开</p>
+                <div className="text-sm font-medium text-content">{t('popup.showOnWebpages')}</div>
+                <p className="m-0 mt-1 text-xs text-content-secondary">
+                  {t('popup.youCanStillOpenCloudDockFromTheExtensionIcon')}
+                </p>
               </div>
             </div>
             <Switch
-              aria-label="在网页中显示悬浮按钮"
+              aria-label={t('popup.showTheFloatingButtonOnWebpages')}
               loading={!settingsReady}
               disabled={!settingsReady}
               checked={settingsReady && floatingButtonEnabled}
@@ -125,10 +135,10 @@ function Popup() {
               type="text"
               size="small"
               disabled={!settingsReady || !floatingButtonPosition}
-              icon={<LocateFixed size={15} strokeWidth={1.8} />}
+              icon={<LocateFixed size={15} strokeWidth={1.8} aria-hidden />}
               onClick={resetFloatingButtonPosition}
             >
-              恢复默认位置
+              {t('popup.resetPosition')}
             </Button>
           </div>
         </Card>
@@ -138,21 +148,23 @@ function Popup() {
             size="large"
             block
             className="h-auto min-h-16 justify-start border-border bg-surface text-content shadow active:translate-y-px active:shadow-none"
-            icon={<HelpCircle size={20} strokeWidth={2} className="text-primary" />}
+            icon={<HelpCircle size={20} strokeWidth={2} className="text-primary" aria-hidden />}
             onClick={() => chrome.runtime.openOptionsPage()}
           >
             <span className="flex min-w-0 flex-1 flex-col items-start px-1 text-left">
-              <strong>使用帮助</strong>
-              <small className="font-normal text-content-secondary">查看配置步骤与快捷操作</small>
+              <strong>{t('common.help')}</strong>
+              <small className="font-normal text-content-secondary">
+                {t('popup.viewSetupStepsAndShortcuts')}
+              </small>
             </span>
-            <ArrowRight size={17} strokeWidth={2} />
+            <ArrowRight size={17} strokeWidth={2} aria-hidden />
           </Button>
         </Card>
       </section>
 
       <footer className="mt-5 flex items-center justify-center gap-2 text-xs text-content-secondary">
         <span className="h-2 w-2 rounded-full bg-success shadow" aria-hidden="true" />
-        扩展已就绪
+        {t('popup.extensionReady')}
       </footer>
     </main>
   );
@@ -161,8 +173,10 @@ function Popup() {
 const container = document.getElementById('root');
 if (container) {
   createRoot(container).render(
-    <ThemeProvider slug="modern-glass" density="middle" popupContainer={container}>
-      <Popup />
-    </ThemeProvider>
+    <I18nProvider>
+      <ThemeProvider slug="modern-glass" density="middle" popupContainer={container}>
+        <Popup />
+      </ThemeProvider>
+    </I18nProvider>
   );
 }
