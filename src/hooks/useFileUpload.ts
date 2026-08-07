@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useCloudStorage } from './useCloudStorage';
 import { useUIStore } from '@/store/ui';
 import { useConfigStore } from '@/store/config';
-import type { UploadProgress } from '@/types';
+import { uploadProgress } from '@/lib/uploadProgress';
 import { isImageFile, isVideoFile, normalizeDirectoryPath } from '@/utils/file';
 
 /**
@@ -25,30 +25,18 @@ export function useFileUpload() {
         throw new Error('云存储服务未初始化');
       }
 
-      const uploadProgress: UploadProgress = {
-        fileName: file.name,
-        percent: 0,
-        loaded: 0,
-        total: file.size,
-        status: 'uploading',
-      };
-
-      addUpload(uploadProgress);
+      uploadProgress.publish(file.name, 0);
+      addUpload({ fileName: file.name, status: 'uploading' });
       setUploading(true);
 
       try {
         const result = await provider.uploadFile(file, targetDir, activeConfig.bucket, (percent) => {
-          updateUpload(file.name, {
-            percent,
-            loaded: Math.floor((percent / 100) * file.size),
-          });
+          // 进度 tick 高频且只关乎单个任务，走进度总线而不是全局 store。
+          uploadProgress.publish(file.name, percent);
         });
 
-        updateUpload(file.name, {
-          percent: 100,
-          loaded: file.size,
-          status: 'success',
-        });
+        uploadProgress.publish(file.name, 100);
+        updateUpload(file.name, { status: 'success' });
 
         let previewUrl = result.url;
         if (isImageFile(file.name) || isVideoFile(file.name)) {
@@ -78,6 +66,7 @@ export function useFileUpload() {
         // 2秒后移除成功的上传记录
         setTimeout(() => {
           removeUpload(file.name);
+          uploadProgress.reset(file.name);
         }, 2000);
 
         return true;
@@ -110,13 +99,8 @@ export function useFileUpload() {
       // 整批文件在提交时刻全部入队为“等待中”，而不是轮到才追加，
       // 让用户一眼看到全部任务及队列规模。
       for (const file of files) {
-        addUpload({
-          fileName: file.name,
-          percent: 0,
-          loaded: 0,
-          total: file.size,
-          status: 'pending',
-        });
+        uploadProgress.publish(file.name, 0);
+        addUpload({ fileName: file.name, status: 'pending' });
       }
 
       // 顺序提交可避免多个写后刷新互相覆盖乐观列表。

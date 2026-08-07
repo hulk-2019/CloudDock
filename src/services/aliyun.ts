@@ -1,4 +1,5 @@
 import OSS from 'ali-oss';
+import { UPLOAD_PARALLEL_LIMIT, UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
@@ -117,19 +118,20 @@ export class AliOSSService implements ICloudStorageProvider {
 
     const fullPath = joinPath(path, file.name);
 
-    const result = await this.client.put(fullPath, file, {
+    // 分片上传：SDK 对小于 partSize 的文件自动退化为普通 put。
+    await this.client.multipartUpload(fullPath, file, {
+      partSize: UPLOAD_PART_SIZE_BYTES,
+      parallel: UPLOAD_PARALLEL_LIMIT,
       progress: (p: number) => {
         // OSS SDK 的 progress 参数范围是 0-1，转换为 0-100
         if (onProgress) {
           onProgress(Math.round(p * 100));
         }
       },
-      headers: {},
-      timeout: 60000,
-    } as any);
+    });
 
     return {
-      url: result.url,
+      url: `https://${this.config!.bucket}.${this.config!.region}.aliyuncs.com/${fullPath}`,
       name: file.name,
       size: file.size,
       path: fullPath,

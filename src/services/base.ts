@@ -1,6 +1,16 @@
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 
 /**
+ * 分片上传统一参数：2MB 分片（OSS 最小 100KB、COS 最小 1MB，均满足），
+ * 3 路并发控制在浏览器同域连接数限制之内。
+ */
+export const UPLOAD_PART_SIZE_BYTES = 2 * 1024 * 1024;
+export const UPLOAD_PARALLEL_LIMIT = 3;
+
+/** S3 协议强制每个分片（末片除外）≥5MB，lib-storage 会在客户端校验，AWS 单独取此下限。 */
+export const S3_MIN_PART_SIZE_BYTES = 5 * 1024 * 1024;
+
+/**
  * 云存储服务提供商接口
  * 所有云厂商的实现都必须遵循此接口
  */

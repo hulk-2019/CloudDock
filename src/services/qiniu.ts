@@ -1,4 +1,5 @@
 import * as qiniu from 'qiniu-js';
+import { UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
@@ -42,6 +43,8 @@ export class QiniuService implements ICloudStorageProvider {
       {
         useCdnDomain: true,
         region: qiniu.region.z0, // 根据配置选择区域
+        // 超过 4MB 时 SDK 走分片上传，chunkSize 单位为 MB，与全局分片大小保持一致。
+        chunkSize: UPLOAD_PART_SIZE_BYTES / (1024 * 1024),
       }
     );
 

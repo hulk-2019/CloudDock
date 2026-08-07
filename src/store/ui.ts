@@ -1,16 +1,16 @@
 import { create } from 'zustand';
-import type { UploadProgress } from '@/types';
+import type { UploadTask } from '@/types';
 
 interface UIState {
   drawerVisible: boolean;
-  uploadQueue: UploadProgress[];
+  uploadQueue: UploadTask[];
   /** 清空队列时递增，批量上传循环据此中止尚未开始的任务（清空即取消）。 */
   uploadCancelToken: number;
 
   setDrawerVisible: (visible: boolean) => void;
   toggleDrawer: () => void;
-  addUpload: (upload: UploadProgress) => void;
-  updateUpload: (fileName: string, updates: Partial<UploadProgress>) => void;
+  addUpload: (upload: UploadTask) => void;
+  updateUpload: (fileName: string, updates: Partial<UploadTask>) => void;
   removeUpload: (fileName: string) => void;
   clearUploads: () => void;
 }

@@ -52,11 +52,9 @@ export interface UploadResult {
 }
 
 // 上传进度
-export interface UploadProgress {
+/** 上传任务（队列态）：进度百分比走 uploadProgress 总线，不落在这里。 */
+export interface UploadTask {
   fileName: string;
-  percent: number;
-  loaded: number;
-  total: number;
   status: 'pending' | 'uploading' | 'success' | 'error';
 }
 

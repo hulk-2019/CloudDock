@@ -1,4 +1,5 @@
 import COS from 'cos-js-sdk-v5';
+import { UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
@@ -82,12 +83,14 @@ export class TencentCOSService implements ICloudStorageProvider {
     const fullPath = joinPath(path, file.name);
 
     return new Promise((resolve, reject) => {
-      this.client!.putObject(
+      // uploadFile 会在文件超过 SliceSize 时自动切换为分片上传（sliceUploadFile）。
+      this.client!.uploadFile(
         {
           Bucket: bucket,
           Region: this.config!.region,
           Key: fullPath,
           Body: file,
+          SliceSize: UPLOAD_PART_SIZE_BYTES,
           onProgress: (progressData) => {
             if (onProgress) {
               onProgress((progressData.percent || 0) * 100);

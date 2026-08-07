@@ -8,6 +8,8 @@ import {
   ListBucketsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Upload } from '@aws-sdk/lib-storage';
+import { S3_MIN_PART_SIZE_BYTES, UPLOAD_PARALLEL_LIMIT, UPLOAD_PART_SIZE_BYTES } from './base';
 import type { ICloudStorageProvider } from './base';
 import type { CloudConfig, FileItem, BucketInfo, UploadResult } from '@/types';
 import { joinPath } from '@/utils/file';
@@ -88,20 +90,28 @@ export class AWSS3Service implements ICloudStorageProvider {
 
     const fullPath = joinPath(path, file.name);
 
-    const arrayBuffer = await file.arrayBuffer();
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: fullPath,
-      Body: new Uint8Array(arrayBuffer),
-      ContentType: file.type,
+    // lib-storage 的 Upload 对大文件自动走 multipart，小文件退化为单次 PUT，
+    // 且提供真实的上传进度事件（PutObjectCommand 做不到）。
+    const upload = new Upload({
+      client: this.client,
+      params: {
+        Bucket: bucket,
+        Key: fullPath,
+        Body: file,
+        ContentType: file.type,
+      },
+      partSize: Math.max(UPLOAD_PART_SIZE_BYTES, S3_MIN_PART_SIZE_BYTES),
+      queueSize: UPLOAD_PARALLEL_LIMIT,
+      leavePartsOnError: false,
     });
 
-    await this.client.send(command);
+    upload.on('httpUploadProgress', ({ loaded, total }) => {
+      if (onProgress && loaded !== undefined && total) {
+        onProgress(Math.round((loaded / total) * 100));
+      }
+    });
 
-    // AWS SDK v3 不直接支持进度回调，需要使用 @aws-sdk/lib-storage 的 Upload
-    if (onProgress) {
-      onProgress(100);
-    }
+    await upload.done();
 
     return {
       url: `https://${bucket}.s3.${this.config!.region}.amazonaws.com/${fullPath}`,

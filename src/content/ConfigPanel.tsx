@@ -28,6 +28,10 @@ const providerOptions = [
   { value: 'aws', label: 'AWS S3' },
 ] satisfies Array<{ value: CloudProvider; label: string }>;
 
+// 七牛云 JS SDK 能力不完整（列举/删除/凭证均依赖服务端），暂不开放新建入口；
+// 标签映射保留全量，已存在的七牛配置仍能正常展示。
+const selectableProviderOptions = providerOptions.filter((item) => item.value !== 'qiniu');
+
 const providerLabel = Object.fromEntries(
   providerOptions.map((item) => [item.value, item.label])
 ) as Record<CloudProvider, string>;
@@ -340,7 +344,7 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
               </Form.Item>
               <Form.Item name="provider" label="云厂商" rules={[{ required: true }]}>
                 <Select
-                  options={providerOptions}
+                  options={selectableProviderOptions}
                   onChange={() => form.validateFields(['bucket']).catch(() => undefined)}
                 />
               </Form.Item>

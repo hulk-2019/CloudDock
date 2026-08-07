@@ -67,7 +67,7 @@ const pixelSpacing = {
   96: '384px',
 };
 
-const pixelFontSize = {
+const pixelFontSize: Record<string, [string, { lineHeight: string }]> = {
   xs: ['12px', { lineHeight: '16px' }],
   sm: ['14px', { lineHeight: '20px' }],
   base: ['16px', { lineHeight: '24px' }],
