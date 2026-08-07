@@ -118,7 +118,7 @@ function Help() {
               单击打开云盘；拖动按钮可调整它在网页中的位置。
             </ShortcutCard>
             <ShortcutCard icon={<Command {...iconProps} />} title="打开 / 关闭面板">
-              <div className="flex flex-wrap items-center gap-2"><Key>Ctrl / ⌘</Key><span>+</span><Key>Shift</Key><span>+</span><Key>D</Key></div>
+              <div className="flex flex-wrap items-center gap-2"><Key>Alt / ⌥</Key><span>+</span><Key>Shift</Key><span>+</span><Key>D</Key></div>
             </ShortcutCard>
             <ShortcutCard icon={<Image {...iconProps} />} title="截图上传">
               <div className="flex flex-wrap items-center gap-2"><Key>Ctrl / ⌘</Key><span>+</span><Key>Shift</Key><span>+</span><Key>U</Key></div>
