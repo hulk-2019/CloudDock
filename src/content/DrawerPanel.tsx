@@ -14,7 +14,7 @@ import { glassModalStyles } from './modalStyles';
 import { ConfigPanel } from './ConfigPanel';
 import { FileGrid, INTERNAL_DRAG_TYPE } from './FileGrid';
 import { MediaPreview } from './MediaPreview';
-import { UploadQueue } from './UploadQueue';
+import { UploadQueueBell } from './UploadQueue';
 
 interface DrawerPanelProps {
   visible: boolean;
@@ -333,6 +333,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <UploadQueueBell />
           {currentView === 'files' && (
             <Tooltip title="配置与设置">
               <Button
@@ -449,10 +450,6 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
               onFolderDragLeave={() => setDragOverFolder(null)}
               onFolderDrop={handleFolderDrop}
             />
-
-            <div className="mt-4">
-              <UploadQueue />
-            </div>
           </div>
 
           <footer className="mt-3 flex items-center justify-center gap-2 text-xs text-content-secondary">

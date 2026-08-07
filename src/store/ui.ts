@@ -4,6 +4,8 @@ import type { UploadProgress } from '@/types';
 interface UIState {
   drawerVisible: boolean;
   uploadQueue: UploadProgress[];
+  /** 清空队列时递增，批量上传循环据此中止尚未开始的任务（清空即取消）。 */
+  uploadCancelToken: number;
 
   setDrawerVisible: (visible: boolean) => void;
   toggleDrawer: () => void;
@@ -19,19 +21,23 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   drawerVisible: false,
   uploadQueue: [],
+  uploadCancelToken: 0,
 
   setDrawerVisible: (visible) => set({ drawerVisible: visible }),
 
   toggleDrawer: () => set((state) => ({ drawerVisible: !state.drawerVisible })),
 
   addUpload: (upload) => {
-    // 队列以 fileName 作为标识，同名任务直接替换旧记录，避免出现重复进度条。
-    set((state) => ({
-      uploadQueue: [
-        ...state.uploadQueue.filter((item) => item.fileName !== upload.fileName),
-        upload,
-      ],
-    }));
+    // 队列以 fileName 作为标识，同名任务原位替换旧记录：既避免重复进度条，
+    // 也保证任务从“等待中”转入“上传中”时不会跳到队列末尾。
+    set((state) => {
+      const exists = state.uploadQueue.some((item) => item.fileName === upload.fileName);
+      return {
+        uploadQueue: exists
+          ? state.uploadQueue.map((item) => (item.fileName === upload.fileName ? upload : item))
+          : [...state.uploadQueue, upload],
+      };
+    });
   },
 
   updateUpload: (fileName, updates) => {
@@ -48,5 +54,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     }));
   },
 
-  clearUploads: () => set({ uploadQueue: [] }),
+  clearUploads: () =>
+    set((state) => ({ uploadQueue: [], uploadCancelToken: state.uploadCancelToken + 1 })),
 }));

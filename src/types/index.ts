@@ -57,7 +57,7 @@ export interface UploadProgress {
   percent: number;
   loaded: number;
   total: number;
-  status: 'uploading' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'success' | 'error';
 }
 
 // 存储的凭证（加密后）- 现在按配置 ID 存储

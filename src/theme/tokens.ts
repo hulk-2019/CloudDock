@@ -18,6 +18,8 @@ export interface ThemeTokens {
   '--color-bg': string;
   /** 卡片/面板背景 */
   '--color-surface': string;
+  /** 弹层（下拉/菜单/浮窗）背景：必须完全不透明，避免浮在内容上方时透底 */
+  '--color-surface-elevated': string;
   /** 正文文字 */
   '--color-text': string;
   /** 次级文字：标签、说明、辅助信息 */
@@ -73,6 +75,7 @@ export const THEMES: Record<ThemeSlug, ThemeTokens> = {
     '--color-primary': '#3d5a80',
     '--color-bg': '#fdfdfd',
     '--color-surface': '#ffffff',
+    '--color-surface-elevated': '#ffffff',
     '--color-text': '#1d2129',
     '--color-text-secondary': '#5f6672',
     '--color-border': '#dcdfe6',
@@ -92,6 +95,7 @@ export const THEMES: Record<ThemeSlug, ThemeTokens> = {
     // 底色刻意压到明显的浅灰，让白卡片靠明度差浮出来 —— 这是本风格的层级手段，与 minimal（近白底 + 纯描边分层）互为对照
     '--color-bg': '#eff2f7',
     '--color-surface': '#ffffff',
+    '--color-surface-elevated': '#ffffff',
     '--color-text': '#1d2129',
     '--color-text-secondary': '#6b7280',
     '--color-border': '#e5e6eb',
@@ -113,6 +117,8 @@ export const THEMES: Record<ThemeSlug, ThemeTokens> = {
     '--color-primary': '#6366f1', // Indigo 500
     '--color-bg': 'rgba(248, 250, 252, 0.6)', // Slate 50 with opacity
     '--color-surface': 'rgba(255, 255, 255, 0.85)',
+    // 毛玻璃风格里卡片是半透明的，但弹层浮在任意内容上，透底会影响可读性，取纯白
+    '--color-surface-elevated': '#ffffff',
     '--color-text': '#0f172a', // Slate 900
     '--color-text-secondary': '#64748b', // Slate 500
     '--color-border': 'rgba(226, 232, 240, 0.6)', // Slate 200 with opacity

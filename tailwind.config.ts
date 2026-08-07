@@ -110,7 +110,10 @@ export default {
       colors: {
         primary: 'var(--color-primary)',
         bg: 'var(--color-bg)',
-        surface: 'var(--color-surface)',
+        surface: {
+          DEFAULT: 'var(--color-surface)',
+          elevated: 'var(--color-surface-elevated)',
+        },
         border: 'var(--color-border)',
         success: 'var(--color-success)',
         warning: 'var(--color-warning)',

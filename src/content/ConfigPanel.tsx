@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { App, Button, Card, Empty, Form, Input, List, Select, Tag, Tooltip } from 'antd';
 import { ArrowLeft, Check, Cloud, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
 import { useConfigStore } from '@/store/config';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils';
 import type { CloudConfigItem, CloudProvider } from '@/types';
 import { getBucketHelp, getBucketPlaceholder, validateBucketName } from '@/utils/configValidation';
@@ -54,6 +55,19 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
     () => [...configs].sort((left, right) => right.updatedAt - left.updatedAt),
     [configs]
   );
+
+  const handleSelectConfig = (config: CloudConfigItem) => {
+    if (config.id === activeConfigId) return;
+    // 切换配置会重建 provider 并重置文件列表，上传中切换会让进行中的任务失去归属。
+    const hasActiveUpload = useUIStore
+      .getState()
+      .uploadQueue.some((upload) => upload.status === 'uploading' || upload.status === 'pending');
+    if (hasActiveUpload) {
+      message.warning('有文件正在上传，请等待上传完成后再切换配置');
+      return;
+    }
+    setActiveConfig(config.id);
+  };
 
   const resetForm = () => {
     form.resetFields();
@@ -206,12 +220,12 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
                           ? 'border-primary ring-1 ring-primary'
                           : 'border-border hover:border-primary/50'
                       )}
-                      onClick={() => setActiveConfig(config.id)}
+                      onClick={() => handleSelectConfig(config)}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) return;
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          setActiveConfig(config.id);
+                          handleSelectConfig(config);
                         }
                       }}
                     >

@@ -45,7 +45,7 @@ export function ThemeProvider({
       colorPrimary: current['--color-primary'],
       colorBgLayout: current['--color-bg'],
       colorBgContainer: current['--color-surface'],
-      colorBgElevated: current['--color-surface'],
+      colorBgElevated: current['--color-surface-elevated'],
       colorText: current['--color-text'],
       colorTextSecondary: current['--color-text-secondary'],
       colorBorder: current['--color-border'],
