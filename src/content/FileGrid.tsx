@@ -86,7 +86,8 @@ function FilePreview({ file, compact = false }: { file: FileItem; compact?: bool
           src={file.url}
           muted
           playsInline
-          preload="auto"
+          // metadata：仅拉取元数据，封面帧由下方 seek 按需加载，避免列表里所有视频全量下载。
+          preload="metadata"
           className="h-full w-full object-cover"
           onLoadedMetadata={(event) => {
             const video = event.currentTarget;

@@ -13,8 +13,13 @@ import {
   isVideoFile,
   joinPath,
 } from '@/utils/file';
-import { captureScreenshot, readImageFromClipboard } from '@/utils/screenshot';
+import {
+  captureScreenshot,
+  extractMediaFromPayload,
+  readImageFromClipboard,
+} from '@/utils/screenshot';
 import type { FileItem } from '@/types';
+import { DRAWER_PANEL_WIDTH } from '@/constants/layout';
 import { cn } from '@/lib/utils';
 import { BreadcrumbToolbar } from './BreadcrumbToolbar';
 import { glassModalStyles } from './modalStyles';
@@ -26,6 +31,8 @@ import { UploadQueueBell } from './UploadQueue';
 interface DrawerPanelProps {
   visible: boolean;
   onClose: () => void;
+  /** 媒体预览打开/关闭时通知宿主：预览需要把 iframe 扩展到整个视口才能全屏展示。 */
+  onOverlayChange?: (active: boolean) => void;
 }
 
 /** 拖拽/粘贴进来的“文件”可能是目录：目录无法读取内容，用读取首字节的方式甄别。 */
@@ -38,7 +45,7 @@ const isRealFile = async (file: File): Promise<boolean> => {
   }
 };
 
-const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
+const DrawerPanel = ({ visible, onClose, onOverlayChange }: DrawerPanelProps) => {
   const asideRef = useRef<HTMLElement>(null);
   const fileScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +135,41 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   );
 
   // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
+  // （该路径覆盖桌面文件直接拖入 iframe 的场景。）
   const { isDragOver } = useDragUpload(asideRef, submitUploads);
+
+  // 页面内媒体拖拽走不到上面的路径：Chromium 禁止同标签页向跨源 iframe 拖放，
+  // 由内容脚本的透明浮层代收 drop，再把载荷通过窗口事件转发进来。
+  const [externalDragOver, setExternalDragOver] = useState(false);
+  const dragOverActive = isDragOver || externalDragOver;
+
+  useEffect(() => {
+    const handleExternalDrag = (event: Event) => {
+      setExternalDragOver(Boolean((event as CustomEvent<boolean>).detail));
+    };
+    const handleExternalDrop = async (event: Event) => {
+      setExternalDragOver(false);
+      const detail = (event as CustomEvent<{ files: File[]; html: string; uriList: string }>)
+        .detail;
+      try {
+        // 与 useDragUpload 相同的取舍：File 载荷与 HTML 载荷只能取其一，避免重复上传。
+        const media =
+          detail.files.length > 0
+            ? detail.files
+            : await extractMediaFromPayload(detail.html, detail.uriList);
+        if (media.length > 0) await submitUploads(media);
+      } catch (dropError) {
+        console.error('Upload failed:', dropError);
+      }
+    };
+
+    window.addEventListener('clouddock:external-drag', handleExternalDrag);
+    window.addEventListener('clouddock:external-drop', handleExternalDrop);
+    return () => {
+      window.removeEventListener('clouddock:external-drag', handleExternalDrag);
+      window.removeEventListener('clouddock:external-drop', handleExternalDrop);
+    };
+  }, [submitUploads]);
   const mediaFiles = useMemo(
     () =>
       files.filter(
@@ -183,6 +224,10 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     setPreviewPath(null);
   }, [activeConfig?.id, currentPath]);
 
+  useEffect(() => {
+    onOverlayChange?.(Boolean(previewPath));
+  }, [onOverlayChange, previewPath]);
+
   const copyFileLink = async (file: FileItem) => {
     try {
       const url = await getFileUrl(file.path);
@@ -226,6 +271,22 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     });
   };
 
+  const performCreateFolder = async (folderName: string, replaceTarget: FileItem | null) => {
+    setCreatingFolder(true);
+    try {
+      // 覆盖：先删除同名的文件/文件夹（含其中内容），再创建新的空文件夹。
+      if (replaceTarget) await deleteFile(replaceTarget.path);
+      await createFolder(folderName);
+      setNewFolderName('');
+      setFolderModalOpen(false);
+      message.success(`文件夹“${folderName}”已创建`);
+    } catch (createError) {
+      message.error((createError as Error).message);
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
   const handleCreateFolder = async () => {
     const folderName = newFolderName.trim();
     if (!folderName) {
@@ -237,17 +298,25 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       return;
     }
 
-    setCreatingFolder(true);
-    try {
-      await createFolder(folderName);
-      setNewFolderName('');
-      setFolderModalOpen(false);
-      message.success(`文件夹“${folderName}”已创建`);
-    } catch (createError) {
-      message.error((createError as Error).message);
-    } finally {
-      setCreatingFolder(false);
+    const existing = files.find((item) => item.name === folderName) ?? null;
+    if (existing) {
+      const isFolder = existing.type === 'folder';
+      modal.confirm({
+        title: `“${folderName}”已存在`,
+        content: isFolder
+          ? '当前目录已有同名文件夹。覆盖将删除原文件夹及其中全部内容，并创建空文件夹。'
+          : '当前目录已有同名文件。覆盖将删除该文件，并创建同名文件夹。',
+        okText: '覆盖',
+        cancelText: '取消',
+        centered: true,
+        styles: glassModalStyles,
+        okButtonProps: { danger: true },
+        onOk: () => performCreateFolder(folderName, existing),
+      });
+      return;
     }
+
+    await performCreateFolder(folderName, null);
   };
 
   const handleFileDragStart = (event: DragEvent, file: FileItem) => {
@@ -333,9 +402,11 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
       aria-label="CloudDock 云盘面板"
       aria-hidden={!visible}
       className={cn(
-        'pointer-events-auto relative z-10 flex h-screen w-full min-w-0 flex-col border-l border-border bg-bg p-5 font-sans text-content shadow-2xl backdrop-blur transition-all duration-300',
+        'pointer-events-auto relative z-10 flex h-screen min-w-0 flex-col border-l border-border bg-bg p-5 font-sans text-content shadow-2xl backdrop-blur transition-all duration-300',
         visible ? 'visible translate-x-0 opacity-100' : 'invisible pointer-events-none translate-x-full opacity-0'
       )}
+      /* 预览全屏时 iframe 会扩展到整个视口，面板自身保持固定宽度、贴右侧 */
+      style={{ width: `min(${DRAWER_PANEL_WIDTH}px, 100vw)`, marginLeft: 'auto' }}
     >
       <header className="relative z-20 mb-4 flex items-center justify-between gap-3 border-b border-border/50 bg-surface/50 pb-4 shadow-sm backdrop-blur-md -mx-5 px-5 -mt-5 pt-5">
         <div className="flex min-w-0 items-center gap-2">
@@ -430,11 +501,11 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
             ref={fileScrollRef}
             className={cn(
               'relative -mr-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded p-1 pr-5 transition',
-              isDragOver &&
+              dragOverActive &&
                 'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-bg))] ring-2 ring-primary'
             )}
           >
-            {isDragOver && (
+            {dragOverActive && (
               // 零高度 sticky 容器：提示条悬浮在列表上方，不参与布局，
               // 避免拖拽过程中光标下方内容位移引发 dragenter/dragleave 抖动。
               <div className="pointer-events-none sticky top-0 z-10 h-0">

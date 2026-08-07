@@ -1,0 +1,35 @@
+/* 抽屉运行在扩展源的独立页面（iframe）中，Lightbox 样式随本页样式表加载 */
+@import 'yet-another-react-lightbox/styles.css';
+@import 'yet-another-react-lightbox/plugins/captions.css';
+@import 'yet-another-react-lightbox/plugins/counter.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root,
+/* antd App 组件包了一层无高度的 div，需补齐让面板高度链完整 */
+#root > .ant-app {
+  height: 100%;
+  margin: 0;
+}
+
+/* 背景透明：抽屉收起/滑入动画期间 iframe 不遮挡宿主页面 */
+body {
+  background: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

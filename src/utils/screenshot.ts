@@ -1,3 +1,5 @@
+import { isImageFile, isVideoFile } from './file';
+
 /**
  * 截取当前标签页的屏幕截图
  */
@@ -74,24 +76,47 @@ export function extractFilesFromDragEvent(event: DragEvent): File[] {
  * 从拖拽事件中提取网页图片/视频 URL
  */
 export async function extractMediaFromDragEvent(event: DragEvent): Promise<File[]> {
+  if (!event.dataTransfer) return [];
+  return extractMediaFromPayload(
+    event.dataTransfer.getData('text/html'),
+    event.dataTransfer.getData('text/uri-list')
+  );
+}
+
+/**
+ * 从拖拽载荷（HTML 片段 / URI 列表）中解析媒体 URL 并下载为 File。
+ * 单独成函数：跨源 iframe 无法直接接收页面拖拽，内容脚本代收后把
+ * 原始载荷 postMessage 进抽屉页，由抽屉页调用本函数解析下载。
+ */
+export async function extractMediaFromPayload(html: string, uriList: string): Promise<File[]> {
   const files: File[] = [];
-
-  if (!event.dataTransfer) return files;
-
-  const html = event.dataTransfer.getData('text/html');
-  if (!html) return files;
-
-  const doc = new DOMParser().parseFromString(html, 'text/html');
 
   // 站点的拖拽载荷里常出现重复节点（懒加载占位图、同一资源的多个引用），
   // 必须按 URL 去重，否则同一资源会被下载并上传多次。
   const mediaUrls = new Map<string, string>();
-  for (const img of Array.from(doc.querySelectorAll('img'))) {
-    if (img.src && img.src.startsWith('http')) mediaUrls.set(img.src, img.alt || 'image');
+
+  if (html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const img of Array.from(doc.querySelectorAll('img'))) {
+      if (img.src && img.src.startsWith('http')) mediaUrls.set(img.src, img.alt || 'image');
+    }
+    for (const video of Array.from(doc.querySelectorAll('video'))) {
+      const url = video.src || video.querySelector('source')?.src || '';
+      if (url.startsWith('http')) mediaUrls.set(url, 'video');
+    }
   }
-  for (const video of Array.from(doc.querySelectorAll('video'))) {
-    const url = video.src || video.querySelector('source')?.src || '';
-    if (url.startsWith('http')) mediaUrls.set(url, 'video');
+
+  // 部分站点（尤其是拖拽 <video> 场景）只提供 text/uri-list，没有 HTML 载荷；
+  // 仅当 URL 按扩展名判断确实是媒体资源时才接收，避免把普通链接当文件下载。
+  if (mediaUrls.size === 0 && uriList) {
+    const url = uriList
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith('#'));
+    if (url?.startsWith('http')) {
+      const filename = getFilenameFromUrl(url);
+      if (isImageFile(filename) || isVideoFile(filename)) mediaUrls.set(url, 'media');
+    }
   }
 
   for (const [url, baseName] of mediaUrls) {
