@@ -14,6 +14,8 @@ const sameStoragePath = (left: string, right: string) => joinPath(left) === join
 interface ProviderBinding {
   provider: ICloudStorageProvider;
   configId: string;
+  /** 创建实例时配置行的 updatedAt：配置被编辑后旧实例立即失效。 */
+  configVersion: number;
 }
 
 export function useCloudStorage() {
@@ -21,12 +23,20 @@ export function useCloudStorage() {
   const [error, setError] = useState<string | null>(null);
 
   const { getActiveConfig, currentPath, setCurrentPath, activeConfigId } = useConfigStore();
+  // 编辑配置不改变 activeConfigId，必须同时订阅配置内容的版本（updatedAt），
+  // 否则修正错误配置后 provider 不会重建，刷新仍用旧客户端报错。
+  const activeConfigVersion = useConfigStore(
+    (state) => state.configs.find((item) => item.id === state.activeConfigId)?.updatedAt ?? null
+  );
   const { files, loading, setFiles, setLoading, upsertFile } = useFileStore();
   const normalizedCurrentPath = normalizeDirectoryPath(currentPath);
 
-  // provider 与创建它的配置绑定；切换配置后、新实例就绪前，旧实例一律视为不可用，
+  // provider 与创建它的配置绑定；切换/编辑配置后、新实例就绪前，旧实例一律视为不可用，
   // 否则加载列表的 effect 会在同一次渲染里拿着旧配置的客户端把旧列表再拉一遍。
-  const provider = binding && binding.configId === activeConfigId ? binding.provider : null;
+  const provider =
+    binding && binding.configId === activeConfigId && binding.configVersion === activeConfigVersion
+      ? binding.provider
+      : null;
 
   const initProvider = useCallback(async () => {
     const activeConfig = getActiveConfig();
@@ -67,16 +77,23 @@ export function useCloudStorage() {
       };
 
       const providerInstance = await CloudStorageFactory.create(config);
-      // 等待期间用户可能又切换了配置，过期实例直接丢弃。
-      if (useConfigStore.getState().activeConfigId !== activeConfig.id) return;
-      setBinding({ provider: providerInstance, configId: activeConfig.id });
+      // 等待期间用户可能又切换或再次编辑了配置，过期实例直接丢弃。
+      const latest = useConfigStore.getState().getActiveConfig();
+      if (!latest || latest.id !== activeConfig.id || latest.updatedAt !== activeConfig.updatedAt) {
+        return;
+      }
+      setBinding({
+        provider: providerInstance,
+        configId: activeConfig.id,
+        configVersion: activeConfig.updatedAt,
+      });
       setError(null);
     } catch (initError) {
       setBinding(null);
       setError((initError as Error).message);
       console.error('Failed to init provider:', initError);
     }
-  }, [activeConfigId, getActiveConfig, setFiles]);
+  }, [activeConfigId, activeConfigVersion, getActiveConfig, setFiles]);
 
   const fetchFiles = useCallback(async (): Promise<FileItem[]> => {
     const activeConfig = getActiveConfig();

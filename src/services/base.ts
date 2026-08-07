@@ -33,12 +33,14 @@ export interface ICloudStorageProvider {
    * @param path 上传路径
    * @param bucket Bucket 名称
    * @param onProgress 进度回调
+   * @param signal 取消信号：触发后应立即中止传输（含进行中的分片），并以异常拒绝
    */
   uploadFile(
     file: File,
     path: string,
     bucket: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult>;
 
   /**

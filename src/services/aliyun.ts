@@ -112,23 +112,45 @@ export class AliOSSService implements ICloudStorageProvider {
     file: File,
     path: string,
     _bucket: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult> {
     if (!this.client) throw new Error('Client not initialized');
+    if (signal?.aborted) throw new Error('上传已取消');
 
     const fullPath = joinPath(path, file.name);
+    const client = this.client;
+    let uploadId: string | undefined;
 
-    // 分片上传：SDK 对小于 partSize 的文件自动退化为普通 put。
-    await this.client.multipartUpload(fullPath, file, {
-      partSize: UPLOAD_PART_SIZE_BYTES,
-      parallel: UPLOAD_PARALLEL_LIMIT,
-      progress: (p: number) => {
-        // OSS SDK 的 progress 参数范围是 0-1，转换为 0-100
-        if (onProgress) {
-          onProgress(Math.round(p * 100));
-        }
-      },
-    });
+    const handleAbort = () => {
+      // cancel() 中止 SDK 内正在进行的分片请求；已上传的分片再向服务端发起清理。
+      try {
+        client.cancel();
+      } catch {
+        // 客户端可能没有进行中的请求，忽略。
+      }
+      if (uploadId) {
+        void client.abortMultipartUpload(fullPath, uploadId).catch(() => undefined);
+      }
+    };
+    signal?.addEventListener('abort', handleAbort, { once: true });
+
+    try {
+      // 分片上传：SDK 对小于 partSize 的文件自动退化为普通 put。
+      await client.multipartUpload(fullPath, file, {
+        partSize: UPLOAD_PART_SIZE_BYTES,
+        parallel: UPLOAD_PARALLEL_LIMIT,
+        progress: (p: number, checkpoint?: { uploadId?: string }) => {
+          uploadId = checkpoint?.uploadId ?? uploadId;
+          // OSS SDK 的 progress 参数范围是 0-1，转换为 0-100
+          if (onProgress) {
+            onProgress(Math.round(p * 100));
+          }
+        },
+      });
+    } finally {
+      signal?.removeEventListener('abort', handleAbort);
+    }
 
     return {
       url: `https://${this.config!.bucket}.${this.config!.region}.aliyuncs.com/${fullPath}`,

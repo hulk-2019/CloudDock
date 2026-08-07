@@ -15,10 +15,11 @@ export function useFileUpload() {
   const [uploading, setUploading] = useState(false);
 
   /**
-   * 上传单个文件到指定目录（目录在提交时锁定，不随后续浏览路径变化）
+   * 上传单个文件到指定目录（目录在提交时锁定，不随后续浏览路径变化）。
+   * 返回 true 表示成功，false 表示被取消（清空队列）；失败以异常抛出。
    */
   const uploadFile = useCallback(
-    async (file: File, targetDir: string) => {
+    async (file: File, targetDir: string): Promise<boolean> => {
       const activeConfig = getActiveConfig();
 
       if (!provider || !activeConfig) {
@@ -29,11 +30,24 @@ export function useFileUpload() {
       addUpload({ fileName: file.name, status: 'uploading' });
       setUploading(true);
 
+      // 清空队列即取消：上传期间监听取消标记，标记变化立即中止在途传输（含分片）。
+      const abortController = new AbortController();
+      const cancelTokenAtStart = useUIStore.getState().uploadCancelToken;
+      const unsubscribeCancel = useUIStore.subscribe((state) => {
+        if (state.uploadCancelToken !== cancelTokenAtStart) abortController.abort();
+      });
+
       try {
-        const result = await provider.uploadFile(file, targetDir, activeConfig.bucket, (percent) => {
-          // 进度 tick 高频且只关乎单个任务，走进度总线而不是全局 store。
-          uploadProgress.publish(file.name, percent);
-        });
+        const result = await provider.uploadFile(
+          file,
+          targetDir,
+          activeConfig.bucket,
+          (percent) => {
+            // 进度 tick 高频且只关乎单个任务，走进度总线而不是全局 store。
+            uploadProgress.publish(file.name, percent);
+          },
+          abortController.signal
+        );
 
         uploadProgress.publish(file.name, 100);
         updateUpload(file.name, { status: 'success' });
@@ -71,6 +85,12 @@ export function useFileUpload() {
 
         return true;
       } catch (error) {
+        // 用户主动取消不是失败：任务记录已随清空移除，不再写入错误状态。
+        if (abortController.signal.aborted) {
+          uploadProgress.reset(file.name);
+          return false;
+        }
+
         updateUpload(file.name, {
           status: 'error',
         });
@@ -78,6 +98,7 @@ export function useFileUpload() {
         console.error('Upload failed:', error);
         throw error;
       } finally {
+        unsubscribeCancel();
         setUploading(false);
       }
     },
@@ -107,8 +128,9 @@ export function useFileUpload() {
       for (const file of files) {
         if (useUIStore.getState().uploadCancelToken !== cancelToken) break;
         try {
-          await uploadFile(file, targetDir);
-          success += 1;
+          // 返回 false 表示上传中被取消，不计成功也不计失败；下一轮循环检查即中止。
+          const uploaded = await uploadFile(file, targetDir);
+          if (uploaded) success += 1;
         } catch {
           failed += 1;
         }

@@ -84,9 +84,11 @@ export class AWSS3Service implements ICloudStorageProvider {
     file: File,
     path: string,
     bucket: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult> {
     if (!this.client) throw new Error('Client not initialized');
+    if (signal?.aborted) throw new Error('上传已取消');
 
     const fullPath = joinPath(path, file.name);
 
@@ -111,7 +113,17 @@ export class AWSS3Service implements ICloudStorageProvider {
       }
     });
 
-    await upload.done();
+    // abort() 会中止在途请求并向服务端发送 AbortMultipartUpload 清理已传分片。
+    const handleAbort = () => {
+      void upload.abort().catch(() => undefined);
+    };
+    signal?.addEventListener('abort', handleAbort, { once: true });
+
+    try {
+      await upload.done();
+    } finally {
+      signal?.removeEventListener('abort', handleAbort);
+    }
 
     return {
       url: `https://${bucket}.s3.${this.config!.region}.amazonaws.com/${fullPath}`,

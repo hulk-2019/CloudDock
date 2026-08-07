@@ -25,9 +25,11 @@ export class QiniuService implements ICloudStorageProvider {
     file: File,
     path: string,
     bucket: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult> {
     if (!this.config) throw new Error('Client not initialized');
+    if (signal?.aborted) throw new Error('上传已取消');
 
     // 七牛云上传需要 token，这里需要从服务端获取
     // 实际使用时需要实现 getUploadToken 方法
@@ -56,9 +58,11 @@ export class QiniuService implements ICloudStorageProvider {
           }
         },
         error: (err) => {
+          signal?.removeEventListener('abort', handleAbort);
           reject(err);
         },
         complete: (result) => {
+          signal?.removeEventListener('abort', handleAbort);
           resolve({
             url: `https://${this.config!.endpoint}/${result.key}`,
             name: file.name,
@@ -67,6 +71,13 @@ export class QiniuService implements ICloudStorageProvider {
           });
         },
       });
+
+      const handleAbort = () => {
+        // 退订即中止上传，observable 不会再发出事件，需要主动拒绝。
+        subscription.unsubscribe();
+        reject(new Error('上传已取消'));
+      };
+      signal?.addEventListener('abort', handleAbort, { once: true });
     });
   }
 

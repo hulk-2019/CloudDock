@@ -76,21 +76,35 @@ export class TencentCOSService implements ICloudStorageProvider {
     file: File,
     path: string,
     bucket: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult> {
     if (!this.client || !this.config) throw new Error('Client not initialized');
+    if (signal?.aborted) throw new Error('上传已取消');
 
     const fullPath = joinPath(path, file.name);
+    const client = this.client;
 
     return new Promise((resolve, reject) => {
+      let taskId: string | undefined;
+      const handleAbort = () => {
+        // cancelTask 会中止请求，回调随后以错误结束。
+        if (taskId) client.cancelTask(taskId);
+      };
+      signal?.addEventListener('abort', handleAbort, { once: true });
+
       // uploadFile 会在文件超过 SliceSize 时自动切换为分片上传（sliceUploadFile）。
-      this.client!.uploadFile(
+      client.uploadFile(
         {
           Bucket: bucket,
           Region: this.config!.region,
           Key: fullPath,
           Body: file,
           SliceSize: UPLOAD_PART_SIZE_BYTES,
+          onTaskReady: (id) => {
+            taskId = id;
+            if (signal?.aborted) client.cancelTask(id);
+          },
           onProgress: (progressData) => {
             if (onProgress) {
               onProgress((progressData.percent || 0) * 100);
@@ -98,6 +112,7 @@ export class TencentCOSService implements ICloudStorageProvider {
           },
         },
         (err, data) => {
+          signal?.removeEventListener('abort', handleAbort);
           if (err) return reject(err);
 
           resolve({

@@ -120,23 +120,14 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
 
     setSaving(true);
     try {
-      const configId = editingId
-        ? editingId
-        : addConfig({
-            name: values.name.trim(),
-            provider: values.provider,
-            region: values.region.trim(),
-            bucket,
-          });
-
-      if (editingId) {
-        updateConfig(editingId, {
-          name: values.name.trim(),
-          provider: values.provider,
-          region: values.region.trim(),
-          bucket,
-        });
-      }
+      const configFields = {
+        name: values.name.trim(),
+        provider: values.provider,
+        region: values.region.trim(),
+        bucket,
+      };
+      // 新建时先拿到配置 ID 才能存凭证。
+      const configId = editingId ?? addConfig(configFields);
 
       const response = await chrome.runtime.sendMessage({
         action: 'setCredentials',
@@ -146,6 +137,10 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
       });
 
       if (response?.success === false) throw new Error(response.error ?? '凭证保存失败');
+
+      // 必须在凭证落库之后再更新配置行：updatedAt 变化会触发列表侧重建 provider，
+      // 若先更新配置，重建可能读到旧凭证（或新建场景下读不到凭证）。
+      updateConfig(configId, configFields);
       message.success(editingId ? '配置已更新' : '配置已添加');
       resetForm();
     } catch (error) {
