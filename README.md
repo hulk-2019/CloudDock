@@ -157,7 +157,7 @@ CloudDock cannot run on protected browser pages, including most `chrome://` page
 
 ### The bucket does not load
 
-Verify the provider, region, bucket name, key pair, and key permissions. Depending on the provider and bucket policy, you may also need to configure CORS for the extension origin.
+Verify the provider, region, bucket name, key pair, and key permissions. CloudDock normally uses extension host permissions instead of webpage CORS. If the browser reports an explicit cross-origin error, see the [CORS guide](./CORS.md).
 
 ### A copied link expires
 

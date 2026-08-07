@@ -157,7 +157,7 @@ CloudDock 无法在受保护的浏览器页面中运行，包括大多数 `chrom
 
 ### 无法加载 Bucket
 
-请检查云厂商、Region、Bucket 名称、访问密钥和密钥权限。根据云厂商与 Bucket 策略，你可能还需要为扩展来源配置 CORS。
+请检查云厂商、Region、Bucket 名称、访问密钥和密钥权限。CloudDock 通常通过扩展的主机权限访问云存储，不依赖宿主网页的 CORS。如果浏览器明确报告跨域错误，请参阅 [CORS 配置指南](./CORS.zh-CN.md)。
 
 ### 复制的链接失效
 
