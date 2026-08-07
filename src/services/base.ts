@@ -85,7 +85,15 @@ export class CloudStorageFactory {
    * 创建云存储服务实例
    */
   static async create(config: CloudConfig): Promise<ICloudStorageProvider> {
-    const key = `${config.provider}_${config.bucket}`;
+    // 缓存键必须覆盖全部连接要素：两个配置可能只有地域或密钥不同，
+    // 仅按 provider + bucket 缓存会导致切换/编辑配置后仍复用旧客户端。
+    const key = [
+      config.provider,
+      config.region,
+      config.bucket,
+      config.accessKeyId,
+      config.accessKeySecret,
+    ].join('|');
 
     // 复用已创建的实例
     if (this.instances.has(key)) {
