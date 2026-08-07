@@ -5,7 +5,14 @@ import { useCloudStorage } from '@/hooks/useCloudStorage';
 import { useDragUpload } from '@/hooks/useDragUpload';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useConfigStore } from '@/store/config';
-import { getBasename, isImageFile, isVideoFile, joinPath } from '@/utils/file';
+import {
+  MAX_UPLOAD_FILE_SIZE_BYTES,
+  MAX_UPLOAD_FILE_SIZE_LABEL,
+  getBasename,
+  isImageFile,
+  isVideoFile,
+  joinPath,
+} from '@/utils/file';
 import { captureScreenshot, readImageFromClipboard } from '@/utils/screenshot';
 import type { FileItem } from '@/types';
 import { cn } from '@/lib/utils';
@@ -61,17 +68,31 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
   const { configs, getActiveConfig, fileViewMode, setFileViewMode } = useConfigStore();
   const activeConfig = getActiveConfig();
 
-  /** 所有上传入口（拖拽/粘贴/截图/选择文件）的统一闸口：过滤文件夹 → 同名校验 → 上传。 */
+  /** 所有上传入口（拖拽/粘贴/截图/选择文件）的统一闸口：过滤文件夹 → 大小限制 → 同名校验 → 上传。 */
   const submitUploads = useCallback(
     async (candidates: File[]) => {
       if (candidates.length === 0) return;
 
       const checks = await Promise.all(candidates.map(isRealFile));
-      const uploadable = candidates.filter((_, index) => checks[index]);
-      const skippedFolders = candidates.length - uploadable.length;
+      const realFiles = candidates.filter((_, index) => checks[index]);
+      const skippedFolders = candidates.length - realFiles.length;
       if (skippedFolders > 0) {
         message.warning(`不支持上传文件夹，已跳过 ${skippedFolders} 项`);
       }
+
+      const oversized = realFiles.filter((file) => file.size > MAX_UPLOAD_FILE_SIZE_BYTES);
+      if (oversized.length > 0) {
+        const shownNames = oversized
+          .slice(0, 3)
+          .map((file) => `「${file.name}」`)
+          .join('、');
+        const suffix = oversized.length > 3 ? ` 等 ${oversized.length} 项` : '';
+        message.warning(
+          `单个文件不能超过 ${MAX_UPLOAD_FILE_SIZE_LABEL}，已跳过 ${shownNames}${suffix}`
+        );
+      }
+
+      const uploadable = realFiles.filter((file) => file.size <= MAX_UPLOAD_FILE_SIZE_BYTES);
       if (uploadable.length === 0) return;
 
       const performUpload = async () => {

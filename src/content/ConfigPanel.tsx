@@ -319,7 +319,22 @@ export function ConfigPanel({ onBack }: ConfigPanelProps) {
               <Form.Item
                 name="name"
                 label="配置名称"
-                rules={[{ required: true, whitespace: true, message: '请输入配置名称' }]}
+                rules={[
+                  { required: true, whitespace: true, message: '请输入配置名称' },
+                  {
+                    validator: (_, value: string) => {
+                      const name = value?.trim();
+                      if (!name) return Promise.resolve();
+                      // 编辑时排除自身，允许保存时名称不变。
+                      const duplicated = configs.some(
+                        (item) => item.name === name && item.id !== editingId
+                      );
+                      return duplicated
+                        ? Promise.reject(new Error('已存在同名配置，请更换名称'))
+                        : Promise.resolve();
+                    },
+                  },
+                ]}
               >
                 <Input placeholder="例如：公司阿里云" autoComplete="off" />
               </Form.Item>

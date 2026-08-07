@@ -1,3 +1,7 @@
+/** 单个文件上传大小上限（所有上传入口共用），两个常量须保持一致。 */
+export const MAX_UPLOAD_FILE_SIZE_LABEL = '2GB';
+export const MAX_UPLOAD_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024;
+
 /**
  * 格式化文件大小
  */
