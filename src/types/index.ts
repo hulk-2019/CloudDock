@@ -22,6 +22,9 @@ export interface CloudConfigItem {
   updatedAt: number; // 更新时间戳
 }
 
+// 文件列表视图模式
+export type FileViewMode = 'grid' | 'list';
+
 // 文件项
 export interface FileItem {
   name: string;
@@ -69,6 +72,7 @@ export interface UserConfig {
   currentPath: string;
   floatingButtonEnabled?: boolean;
   floatingButtonPosition?: { x: number; y: number } | null;
+  fileViewMode?: FileViewMode;
 }
 
 // 面包屑项

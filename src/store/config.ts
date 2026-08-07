@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CloudProvider, CloudConfigItem } from '@/types';
+import type { CloudProvider, CloudConfigItem, FileViewMode } from '@/types';
 import { normalizeDirectoryPath } from '@/utils/file';
 
 interface ConfigState {
@@ -13,6 +13,8 @@ interface ConfigState {
   floatingButtonEnabled: boolean;
   // 悬浮按钮位置；null 表示使用右下角默认位置
   floatingButtonPosition: { x: number; y: number } | null;
+  // 文件列表视图模式：卡片 / 表格
+  fileViewMode: FileViewMode;
 
   // 获取当前激活的配置
   getActiveConfig: () => CloudConfigItem | null;
@@ -41,6 +43,9 @@ interface ConfigState {
   // 设置悬浮按钮位置
   setFloatingButtonPosition: (position: { x: number; y: number } | null) => void;
 
+  // 设置文件列表视图模式
+  setFileViewMode: (mode: FileViewMode) => void;
+
   // 加载配置
   loadConfig: () => Promise<void>;
 
@@ -57,6 +62,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   currentPath: '/',
   floatingButtonEnabled: true,
   floatingButtonPosition: null,
+  fileViewMode: 'grid',
 
   getActiveConfig: () => {
     const { configs, activeConfigId } = get();
@@ -122,6 +128,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     get().saveConfig();
   },
 
+  setFileViewMode: (mode) => {
+    set({ fileViewMode: mode });
+    get().saveConfig();
+  },
+
   loadConfig: async () => {
     // 加载配置列表
     const configsResponse = await chrome.runtime.sendMessage({
@@ -150,6 +161,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         currentPath: normalizeDirectoryPath(userConfig.currentPath || '/'),
         floatingButtonEnabled: userConfig.floatingButtonEnabled !== false,
         floatingButtonPosition: isLegacyDefaultPosition ? null : (savedPosition ?? null),
+        fileViewMode: userConfig.fileViewMode === 'list' ? 'list' : 'grid',
       });
     }
   },
@@ -173,6 +185,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         currentPath: state.currentPath,
         floatingButtonEnabled: state.floatingButtonEnabled,
         floatingButtonPosition: state.floatingButtonPosition,
+        fileViewMode: state.fileViewMode,
       },
     });
   },

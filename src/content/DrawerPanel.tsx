@@ -46,7 +46,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
     createFolder,
   } = useCloudStorage();
   const { uploadFile, uploadFiles } = useFileUpload();
-  const { configs, getActiveConfig } = useConfigStore();
+  const { configs, getActiveConfig, fileViewMode, setFileViewMode } = useConfigStore();
   // 整个抽屉面板都是拖拽上传热区，避免文件列表撑满时头部/工具栏/底栏成为放置死区。
   const { isDragOver } = useDragUpload(asideRef);
   const activeConfig = getActiveConfig();
@@ -292,9 +292,11 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
           <BreadcrumbToolbar
             currentPath={currentPath}
             loading={loading}
+            viewMode={fileViewMode}
             onNavigate={navigate}
             onRefresh={() => void refresh()}
             onCreateFolder={() => setFolderModalOpen(true)}
+            onToggleViewMode={() => setFileViewMode(fileViewMode === 'grid' ? 'list' : 'grid')}
           />
 
           <div
@@ -331,6 +333,7 @@ const DrawerPanel = ({ visible, onClose }: DrawerPanelProps) => {
               loading={loading}
               draggingFile={draggingFile}
               dragOverFolder={dragOverFolder}
+              viewMode={fileViewMode}
               scrollRef={fileScrollRef}
               onOpen={openFile}
               onCopyLink={copyFileLink}

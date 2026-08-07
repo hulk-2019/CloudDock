@@ -25,19 +25,18 @@ import {
   PlayCircle,
   Trash2,
 } from 'lucide-react';
-import type { FileItem } from '@/types';
+import type { FileItem, FileViewMode } from '@/types';
 import { formatDate, formatFileSize, isImageFile, isVideoFile } from '@/utils/file';
 import { cn } from '@/lib/utils';
 
 const INTERNAL_DRAG_TYPE = 'application/x-clouddock-move';
-const iconProps = { size: 42, strokeWidth: 2 } as const;
-const folderIconProps = { size: 58, strokeWidth: 1.8 } as const;
 
 function extension(name: string) {
   return name.split('.').pop()?.toLowerCase() ?? '';
 }
 
-function fileIcon(name: string): ReactNode {
+function fileIcon(name: string, size = 42): ReactNode {
+  const iconProps = { size, strokeWidth: 2 } as const;
   const ext = extension(name);
   if (isImageFile(name)) return <FileImage {...iconProps} />;
   if (isVideoFile(name)) return <FileVideo {...iconProps} />;
@@ -57,13 +56,15 @@ function fileIcon(name: string): ReactNode {
   return <File {...iconProps} />;
 }
 
-function FilePreview({ file }: { file: FileItem }) {
+function FilePreview({ file, compact = false }: { file: FileItem; compact?: boolean }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => setFailed(false), [file.url]);
 
   if (file.type === 'folder') {
-    return <FolderOpen {...folderIconProps} className="text-primary" />;
+    return (
+      <FolderOpen size={compact ? 22 : 58} strokeWidth={1.8} className="text-primary" />
+    );
   }
 
   if (isImageFile(file.name) && file.url && !failed) {
@@ -96,15 +97,20 @@ function FilePreview({ file }: { file: FileItem }) {
           onError={() => setFailed(true)}
         />
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-primary shadow">
-            <PlayCircle size={27} strokeWidth={2} />
+          <span
+            className={cn(
+              'flex items-center justify-center rounded-full border border-border bg-surface text-primary shadow',
+              compact ? 'h-5 w-5' : 'h-11 w-11'
+            )}
+          >
+            <PlayCircle size={compact ? 13 : 27} strokeWidth={2} />
           </span>
         </span>
       </div>
     );
   }
 
-  return <span className="text-content-secondary">{fileIcon(file.name)}</span>;
+  return <span className="text-content-secondary">{fileIcon(file.name, compact ? 20 : 42)}</span>;
 }
 
 interface FileGridProps {
@@ -112,6 +118,7 @@ interface FileGridProps {
   loading: boolean;
   draggingFile: FileItem | null;
   dragOverFolder: string | null;
+  viewMode: FileViewMode;
   /** 承载列表的滚动容器（抽屉内容区），虚拟化基于它计算可视窗口。 */
   scrollRef: RefObject<HTMLDivElement>;
   onOpen: (file: FileItem) => void;
@@ -124,15 +131,18 @@ interface FileGridProps {
   onFolderDrop: (event: DragEvent, folderPath: string) => void;
 }
 
-const COLUMNS = 2;
-/** 卡片高约 176px + 行距 16px；实际高度由 measureElement 动态修正。 */
-const ESTIMATED_ROW_HEIGHT = 192;
+/** 卡片模式每行 2 张卡片，约 176px + 行距 16px；表格模式每行 1 条，约 58px + 行距 8px。实际高度由 measureElement 动态修正。 */
+const VIEW_MODE_LAYOUT: Record<FileViewMode, { columns: number; estimatedRowHeight: number }> = {
+  grid: { columns: 2, estimatedRowHeight: 192 },
+  list: { columns: 1, estimatedRowHeight: 66 },
+};
 
 export function FileGrid({
   files,
   loading,
   draggingFile,
   dragOverFolder,
+  viewMode,
   scrollRef,
   onOpen,
   onCopyLink,
@@ -143,6 +153,7 @@ export function FileGrid({
   onFolderDragLeave,
   onFolderDrop,
 }: FileGridProps) {
+  const { columns, estimatedRowHeight } = VIEW_MODE_LAYOUT[viewMode];
   const listRef = useRef<HTMLDivElement>(null);
   // 列表上方可能有错误提示等内容，行位置需要加上列表在滚动容器内的偏移。
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -152,19 +163,24 @@ export function FileGrid({
 
   const rows = useMemo(() => {
     const result: FileItem[][] = [];
-    for (let index = 0; index < files.length; index += COLUMNS) {
-      result.push(files.slice(index, index + COLUMNS));
+    for (let index = 0; index < files.length; index += columns) {
+      result.push(files.slice(index, index + columns));
     }
     return result;
-  }, [files]);
+  }, [columns, files]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
-    overscan: 4,
+    estimateSize: () => estimatedRowHeight,
+    overscan: viewMode === 'grid' ? 4 : 10,
     scrollMargin,
   });
+
+  // 切换视图模式后行高完全不同，旧的测量缓存必须丢弃。
+  useEffect(() => {
+    virtualizer.measure();
+  }, [viewMode, virtualizer]);
 
   const handleKeyDown = (event: KeyboardEvent, file: FileItem) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -261,6 +277,76 @@ export function FileGrid({
     );
   };
 
+  const renderListRow = (file: FileItem) => {
+    const isDropTarget = file.type === 'folder' && dragOverFolder === file.path;
+    const isDragging = draggingFile?.path === file.path;
+    return (
+      <div
+        key={file.path}
+        role="button"
+        tabIndex={0}
+        draggable
+        aria-label={`${file.type === 'folder' ? '文件夹' : '文件'} ${file.name}`}
+        className={cn(
+          'group flex cursor-pointer items-center gap-3 rounded border border-border bg-surface px-3 py-2 shadow-sm transition hover:border-primary/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+          isDropTarget && 'border-primary ring-2 ring-primary',
+          isDragging && 'opacity-50'
+        )}
+        onClick={() => onOpen(file)}
+        onKeyDown={(event) => handleKeyDown(event, file)}
+        onDragStart={(event) => onDragStart(event, file)}
+        onDragEnd={onDragEnd}
+        onDragOver={
+          file.type === 'folder' ? (event) => onFolderDragOver(event, file.path) : undefined
+        }
+        onDragLeave={file.type === 'folder' ? onFolderDragLeave : undefined}
+        onDrop={file.type === 'folder' ? (event) => onFolderDrop(event, file.path) : undefined}
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-bg">
+          <FilePreview file={file} compact />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-content" title={file.name}>
+            {file.name}
+          </span>
+          <span className="block truncate text-xs text-content-secondary">
+            {file.type === 'file' ? `${formatFileSize(file.size)} · ` : ''}
+            {formatDate(file.lastModified)}
+          </span>
+        </span>
+        {file.type === 'file' && (
+          <span className="flex shrink-0 gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+            <Tooltip title="复制链接">
+              <Button
+                size="small"
+                type="text"
+                aria-label={`复制 ${file.name} 的链接`}
+                icon={<Link size={14} strokeWidth={2} />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCopyLink(file);
+                }}
+              />
+            </Tooltip>
+            <Tooltip title="删除">
+              <Button
+                danger
+                size="small"
+                type="text"
+                aria-label={`删除 ${file.name}`}
+                icon={<Trash2 size={14} strokeWidth={2} />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(file);
+                }}
+              />
+            </Tooltip>
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div ref={listRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtualRow) => (
@@ -268,10 +354,13 @@ export function FileGrid({
           key={virtualRow.key}
           ref={virtualizer.measureElement}
           data-index={virtualRow.index}
-          className="absolute left-0 top-0 grid w-full grid-cols-2 gap-x-4 pb-4"
+          className={cn(
+            'absolute left-0 top-0 w-full',
+            viewMode === 'grid' ? 'grid grid-cols-2 gap-x-4 pb-4' : 'pb-2'
+          )}
           style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
         >
-          {rows[virtualRow.index]?.map(renderCard)}
+          {rows[virtualRow.index]?.map(viewMode === 'grid' ? renderCard : renderListRow)}
         </div>
       ))}
     </div>

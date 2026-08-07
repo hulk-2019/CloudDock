@@ -1,13 +1,25 @@
 import { Button, Dropdown, Tooltip, type MenuProps } from 'antd';
-import { ChevronRight, Folder, FolderPlus, Home, MoreHorizontal, RefreshCw } from 'lucide-react';
+import {
+  ChevronRight,
+  Folder,
+  FolderPlus,
+  Home,
+  LayoutGrid,
+  List,
+  MoreHorizontal,
+  RefreshCw,
+} from 'lucide-react';
+import type { FileViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface BreadcrumbToolbarProps {
   currentPath: string;
   loading: boolean;
+  viewMode: FileViewMode;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
   onCreateFolder: () => void;
+  onToggleViewMode: () => void;
 }
 
 interface CrumbItem {
@@ -61,9 +73,11 @@ function CrumbButton({
 export function BreadcrumbToolbar({
   currentPath,
   loading,
+  viewMode,
   onNavigate,
   onRefresh,
   onCreateFolder,
+  onToggleViewMode,
 }: BreadcrumbToolbarProps) {
   const crumbs = buildCrumbs(currentPath);
   const shouldCollapse = crumbs.length > MAX_VISIBLE_CRUMBS;
@@ -155,6 +169,20 @@ export function BreadcrumbToolbar({
             className="text-primary"
             icon={<FolderPlus size={17} strokeWidth={1.8} />}
             onClick={onCreateFolder}
+          />
+        </Tooltip>
+        <Tooltip title={viewMode === 'grid' ? '切换为列表视图' : '切换为卡片视图'}>
+          <Button
+            type="text"
+            aria-label={viewMode === 'grid' ? '切换为列表视图' : '切换为卡片视图'}
+            icon={
+              viewMode === 'grid' ? (
+                <List size={17} strokeWidth={1.8} />
+              ) : (
+                <LayoutGrid size={17} strokeWidth={1.8} />
+              )
+            }
+            onClick={onToggleViewMode}
           />
         </Tooltip>
       </div>
