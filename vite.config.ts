@@ -15,6 +15,8 @@ export default defineConfig({
     },
   },
   build: {
+    modulePreload: false,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/index.html'),
