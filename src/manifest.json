@@ -61,7 +61,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "docs/*", "src/preview/index.html"],
+      "resources": ["icons/*", "src/preview/index.html"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -25,4 +25,5 @@ dist-ssr
 
 # Build output
 build/
+release/
 .crx/

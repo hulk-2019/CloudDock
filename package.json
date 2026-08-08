@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
+    "package": "node scripts/package-extension.mjs",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
